@@ -88,5 +88,21 @@ Next slice: Hierarchical Knowledge Context & Revision Workspace (Slice 6)
 What was built: Restructured the database from simple groups to a Collections -> Units -> Chapters -> Projects hierarchy. Refactored the UI sidebar into an expandable 3-tier tree and built the Revision Workspace to perform LLM operations strictly bound by selected hierarchical scopes.
 Key decisions made: Dropped `project_groups` completely and wiped the local DB to create the normalized `collections`, `units`, and `chapters` tables. Disabled drag-and-drop in favor of simple "Move" dialogs to prioritize shipping architecture over complex UI.
 Blockers encountered: None.
+Next slice: Adaptive Workspace (Slice 7)
+```
+
+```
+[2026-06-26 11:37] SLICE: Adaptive Workspace (Slice 7)
+What was built: Implemented an adaptive, IDE-inspired workspace layout using react-resizable-panels. Added global keyboard shortcuts for reading zoom (scaling font sizes) and three dedicated viewing modes (Reading, Editing, Focus) with localStorage persistence.
+Key decisions made: Installed react-resizable-panels for robust panel state management. Managed zoom level by applying dynamic fontSize to typography containers to avoid UI reflow issues.
+Blockers encountered: None
+Next slice: IDE Tabs & Split-Screen (Slice 7.5)
+```
+
+```
+[2026-06-26 13:51] SLICE: IDE Tabs & Split-Screen (Slice 7.5)
+What was built: Re-architected Home.tsx to support an array of tabs and panes. Implemented native HTML5 drag-and-drop tabs, a horizontal split-screen layout, and a smart edit mode that temporarily collapses the split to provide full editing space.
+Key decisions made: Used native HTML5 drag-and-drop instead of external libraries. Note: There is no SLICE-07.5.md file; it was executed dynamically at the user's command and not from a file.
+Blockers encountered: Vite import errors for TS interfaces (fixed by using `import type`).
 Next slice: TBD
 ```

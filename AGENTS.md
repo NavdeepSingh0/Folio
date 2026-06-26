@@ -201,6 +201,25 @@ Estimated time: 3–4 hrs
 Risk level: MEDIUM
 Fallback if HIGH: Use folder-based hierarchy only. Resolve context directly from folder structure without DB normalization.
 
+---
+
+SLICE 7 — Adaptive Workspace
+Screens involved: Workspace, Markdown Reader, Markdown Editor, Live Preview, Explorer Sidebar, Toolbar
+Backend work: Minimal. Persist user workspace preferences (zoom level, reading mode, panel widths). No AI or database changes.
+Definition of done: Workspace components are resizable, zoom works via shortcuts, Reading/Editing/Focus modes implemented, workspace preferences persist.
+Estimated time: 5–7 hrs
+Risk level: MEDIUM
+Fallback if HIGH: If persistent workspace settings become unstable, fallback to Local Storage.
+
+---
+
+SLICE 7.5 — IDE Tabs & Split-Screen (Ad-hoc)
+Screens involved: Workspace, TabBar
+Backend work: None.
+Definition of done: Multiple documents open in tabs, native drag-and-drop reordering, horizontal split screens, and a smart-collapsing edit mode. Note: There is no SLICE-07.5.md file; it was done at the user's command and not a file.
+Estimated time: 1 hr
+Risk level: LOW
+Fallback if HIGH: Disable drag and drop.
 
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.

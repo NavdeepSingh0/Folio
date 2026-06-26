@@ -79,7 +79,7 @@ export function StudySidebar({ markdown, onClose, model }: StudySidebarProps) {
   ];
 
   return (
-    <div className="w-80 border-l border-[var(--color-border)] bg-gray-50 p-4 flex flex-col gap-4 text-sm shadow-[-4px_0_15px_rgba(0,0,0,0.03)] z-10 relative h-full">
+    <div className="w-full bg-gray-50 p-4 flex flex-col gap-4 text-sm z-10 relative h-full">
       <div className="flex items-center justify-between pb-2 border-b border-gray-200">
         <h3 className="font-semibold text-gray-700 flex items-center gap-2">
           <BookOpen size={16} className="text-indigo-600" /> Study Assistant

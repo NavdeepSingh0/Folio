@@ -118,7 +118,7 @@ export function Sidebar(props: SidebarProps) {
   );
 
   return (
-    <div className="w-64 border-r border-gray-200 bg-white flex flex-col h-screen fixed left-0 top-0 hidden md:flex">
+    <div className="flex flex-col h-full bg-white">
       <div className="p-4 border-b border-gray-200">
         <h2 className="text-xl font-bold text-blue-600 mb-4">StudyForge</h2>
         
