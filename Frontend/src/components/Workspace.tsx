@@ -28,7 +28,7 @@ const RIGHT_PANEL_DEFAULT = 280;
 const RIGHT_PANEL_MIN = 200;
 const RIGHT_PANEL_MAX = 500;
 
-export function Workspace({ markdown: initialMarkdown, sourceFilename, metadata, onReset, onSave, workspaceSettings, updateWorkspaceSettings, zoomStyle }: WorkspaceProps) {
+export function Workspace({ projectId, chapterId, unitId, collectionId, markdown: initialMarkdown, sourceFilename, metadata, onReset, onSave, workspaceSettings, updateWorkspaceSettings, zoomStyle }: WorkspaceProps) {
   const [copied, setCopied] = useState(false);
   const [editedMarkdown, setEditedMarkdown] = useState(initialMarkdown);
   const [isMetadataOpen, setIsMetadataOpen] = useState(false);
@@ -126,7 +126,7 @@ export function Workspace({ markdown: initialMarkdown, sourceFilename, metadata,
   const rightPanelVisible = !isEditing && (isMetadataOpen || isStudySidebarOpen);
 
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] overflow-hidden flex flex-col h-[85vh] shadow-sm select-none">
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] overflow-hidden flex flex-col h-[85vh] shadow-sm">
       {/* Toolbar */}
       <div className="bg-gray-50 border-b border-[var(--color-border)] p-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -345,6 +345,10 @@ export function Workspace({ markdown: initialMarkdown, sourceFilename, metadata,
                 markdown={editedMarkdown} 
                 model={metadata.model || "llama3.2"} 
                 onClose={() => setIsStudySidebarOpen(false)} 
+                projectId={projectId}
+                chapterId={chapterId}
+                unitId={unitId}
+                collectionId={collectionId}
               />
             )}
           </div>

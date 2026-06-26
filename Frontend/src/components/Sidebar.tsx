@@ -38,7 +38,10 @@ interface SidebarProps {
 }
 
 export function Sidebar(props: SidebarProps) {
+  const [searchMode, setSearchMode] = useState<"filename" | "knowledge">("filename");
   const [searchQuery, setSearchQuery] = useState("");
+  const [semanticResults, setSemanticResults] = useState<{project_id: string, project_title: string, text: string, similarity: number}[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   
   const [editingNode, setEditingNode] = useState<{id: string, type: string} | null>(null);
@@ -90,7 +93,47 @@ export function Sidebar(props: SidebarProps) {
     setMoveModal({isOpen: false, type: '', itemId: ''});
   };
 
-  const filteredProjects = props.projects.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    
+    if (searchMode === "knowledge") {
+      if (val.trim().length > 2) {
+        setIsSearching(true);
+        try {
+          const res = await fetch("http://localhost:8000/api/study/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: val, mode: "knowledge" })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setSemanticResults(data.results || []);
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setSemanticResults([]);
+      }
+    }
+  };
+
+  const handleModeToggle = () => {
+    const nextMode = searchMode === "filename" ? "knowledge" : "filename";
+    setSearchMode(nextMode);
+    if (nextMode === "knowledge" && searchQuery.trim().length > 2) {
+      handleSearchChange({ target: { value: searchQuery } } as any);
+    } else {
+      setSemanticResults([]);
+    }
+  };
+
+  const filteredProjects = searchMode === "filename" 
+    ? props.projects.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : props.projects.filter(p => semanticResults.some(r => r.project_id === p.id));
 
   const renderProject = (p: Project, indent: number = 0) => (
     <div key={p.id} style={{ paddingLeft: `${indent * 12 + 8}px` }}
@@ -131,22 +174,64 @@ export function Sidebar(props: SidebarProps) {
           </button>
         </div>
 
-        <div className="relative">
+        <div className="relative mb-2">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          <input type="text" placeholder="Search..." value={searchQuery} onChange={handleSearchChange} className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" />
         </div>
+        
+        <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-1 rounded-md border border-gray-200">
+          <button 
+            onClick={() => {setSearchMode("filename"); setSemanticResults([]);}}
+            className={`flex-1 py-1 rounded text-center transition-colors ${searchMode === "filename" ? "bg-white shadow-sm text-blue-600 font-medium" : "hover:text-gray-700"}`}
+          >
+            Filename
+          </button>
+          <button 
+            onClick={handleModeToggle}
+            className={`flex-1 py-1 rounded text-center transition-colors ${searchMode === "knowledge" ? "bg-white shadow-sm text-blue-600 font-medium" : "hover:text-gray-700"}`}
+          >
+            Knowledge
+          </button>
+        </div>
+        {searchMode === "knowledge" && isSearching && <div className="text-xs text-blue-500 text-center mt-2 animate-pulse">Searching knowledge base...</div>}
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
-        <div className="flex items-center justify-between px-2 mb-2 mt-2">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hierarchy</h3>
-          <button onClick={() => { setNewName(""); setCreateModal({isOpen: true, type: 'collection', parentId: null}); }} className="text-gray-400 hover:text-gray-700" title="New Collection">
-            <FolderPlus size={14} />
-          </button>
-        </div>
+        {searchMode === "knowledge" && searchQuery.trim().length > 2 ? (
+          <div className="space-y-2 mt-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase px-2 mb-2">Knowledge Matches</h3>
+            {semanticResults.length === 0 && !isSearching ? (
+              <div className="text-sm text-gray-500 px-2">No semantic matches found.</div>
+            ) : (
+              semanticResults.map((res, i) => (
+                <div key={i} onClick={() => props.onSelectProject(res.project_id)} className="group p-3 rounded-lg border border-indigo-100 bg-indigo-50/30 hover:bg-indigo-50 cursor-pointer transition-colors">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                      <FileText size={14} className="text-indigo-500 shrink-0" />
+                      <span className="font-semibold text-sm text-indigo-900 truncate">{res.project_title}</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-indigo-400 bg-indigo-100 px-1.5 py-0.5 rounded-full shrink-0">
+                      {Math.round(res.similarity * 100)}% match
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600 line-clamp-3 leading-relaxed">
+                    {res.text}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between px-2 mb-2 mt-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hierarchy</h3>
+              <button onClick={() => { setNewName(""); setCreateModal({isOpen: true, type: 'collection', parentId: null}); }} className="text-gray-400 hover:text-gray-700" title="New Collection">
+                <FolderPlus size={14} />
+              </button>
+            </div>
 
-        {props.collections.map(col => {
-          const isColExpanded = expandedNodes.has(col.id) || searchQuery;
+            {props.collections.map(col => {
+              const isColExpanded = expandedNodes.has(col.id) || searchQuery;
           const colUnits = props.units.filter(u => u.collection_id === col.id);
           
           return (
@@ -236,6 +321,8 @@ export function Sidebar(props: SidebarProps) {
             {filteredProjects.filter(p => !p.chapter_id).map(p => renderProject(p, 0))}
           </div>
         </div>
+        </>
+        )}
       </div>
 
       <div className="p-4 border-t border-gray-200">

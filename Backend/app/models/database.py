@@ -73,6 +73,11 @@ def init_db():
         cursor.execute("ALTER TABLE projects ADD COLUMN generation_time REAL DEFAULT 0.0")
     except sqlite3.OperationalError:
         pass
+
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN embedding TEXT")
+    except sqlite3.OperationalError:
+        pass
     
     conn.commit()
     conn.close()
@@ -231,7 +236,7 @@ def delete_chapter(cid: str) -> bool:
     return rows_affected > 0
 
 # Projects
-def save_project(title: str, source_filename: str, study_style: str, model: str, markdown_content: str, chapter_id: str = None, pages: int = 0, chunks: int = 0, generation_time: float = 0.0) -> dict:
+def save_project(title: str, source_filename: str, study_style: str, model: str, markdown_content: str, chapter_id: str = None, pages: int = 0, chunks: int = 0, generation_time: float = 0.0, embedding: str = None) -> dict:
     os.makedirs("output", exist_ok=True)
     project_id = str(uuid.uuid4())
     markdown_path = f"output/{project_id}.md"
@@ -245,9 +250,9 @@ def save_project(title: str, source_filename: str, study_style: str, model: str,
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO projects (id, title, source_filename, study_style, model, chapter_id, created_at, last_modified, markdown_path, word_count, pages, chunks, generation_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (project_id, title, source_filename, study_style, model, chapter_id, created_at, created_at, markdown_path, word_count, pages, chunks, generation_time))
+        INSERT INTO projects (id, title, source_filename, study_style, model, chapter_id, created_at, last_modified, markdown_path, word_count, pages, chunks, generation_time, embedding)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (project_id, title, source_filename, study_style, model, chapter_id, created_at, created_at, markdown_path, word_count, pages, chunks, generation_time, embedding))
     
     conn.commit()
     conn.close()
@@ -296,7 +301,7 @@ def get_project(project_id: str) -> dict:
         project["markdown_content"] = "Error: Markdown file not found on disk."
     return project
 
-def update_project(project_id: str, title: str = None, markdown_content: str = None) -> bool:
+def update_project(project_id: str, title: str = None, markdown_content: str = None, embedding: str = None) -> bool:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -314,9 +319,16 @@ def update_project(project_id: str, title: str = None, markdown_content: str = N
         word_count = len(markdown_content.split())
         last_modified = datetime.utcnow().isoformat()
         
-        if title is not None:
+        # Determine query components based on what is provided
+        if title is not None and embedding is not None:
+            cursor.execute('UPDATE projects SET title = ?, last_modified = ?, word_count = ?, embedding = ? WHERE id = ?', 
+                           (title, last_modified, word_count, embedding, project_id))
+        elif title is not None:
             cursor.execute('UPDATE projects SET title = ?, last_modified = ?, word_count = ? WHERE id = ?', 
                            (title, last_modified, word_count, project_id))
+        elif embedding is not None:
+            cursor.execute('UPDATE projects SET last_modified = ?, word_count = ?, embedding = ? WHERE id = ?', 
+                           (last_modified, word_count, embedding, project_id))
         else:
             cursor.execute('UPDATE projects SET last_modified = ?, word_count = ? WHERE id = ?', 
                            (last_modified, word_count, project_id))

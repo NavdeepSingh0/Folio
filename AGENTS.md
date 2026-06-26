@@ -221,6 +221,16 @@ Estimated time: 1 hr
 Risk level: LOW
 Fallback if HIGH: Disable drag and drop.
 
+---
+
+SLICE 8 — Context Magic
+Screens involved: Document Workspace, Study Assistant Panel, Revision Workspace
+Backend work: Implement dynamic generation options (types, parameters, context selection), stream artifacts, implement semantic search, handle cancellation/queues.
+Definition of done: One intelligent assistant replaces isolated tools, user can choose context before generation, customize outputs, generated artifacts are reusable, Revision Mode supports multiple presets, Search supports filename and knowledge modes, everything streams.
+Estimated time: 8–12 hrs
+Risk level: MEDIUM
+Fallback if HIGH: Fallback to Current File and Current Chapter context selection only. Move knowledge search to Slice 11.
+
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.
 - Auth goes in Slice 2 unless the entire product is behind auth and cannot be demoed without it.

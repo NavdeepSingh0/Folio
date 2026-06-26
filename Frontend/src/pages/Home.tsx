@@ -438,9 +438,29 @@ export function Home() {
       );
     }
 
+    const projectId = activeTab.metadata?.id;
+    const chapterId = activeTab.metadata?.chapter_id;
+    let unitId = undefined;
+    let collectionId = undefined;
+    
+    if (chapterId) {
+      const chapter = chapters.find(c => c.id === chapterId);
+      if (chapter) {
+        unitId = chapter.unit_id;
+        const unit = units.find(u => u.id === unitId);
+        if (unit) {
+          collectionId = unit.collection_id;
+        }
+      }
+    }
+
     return (
       <div className="flex-1 flex flex-col overflow-hidden h-full pt-4 px-4 pb-4">
          <Workspace 
+          projectId={projectId}
+          chapterId={chapterId}
+          unitId={unitId}
+          collectionId={collectionId}
           markdown={activeTab.markdown || ""}
           sourceFilename={activeTab.sourceFilename || activeTab.selectedFile?.name || "Untitled"}
           metadata={activeTab.metadata}
@@ -473,7 +493,7 @@ export function Home() {
     : panes;
 
   return (
-    <div ref={containerRef} className="h-screen bg-[var(--background)] flex overflow-hidden select-none">
+    <div ref={containerRef} className="h-screen bg-[var(--background)] flex overflow-hidden">
       {/* Activity Bar */}
       {!isFocus && (
         <div className="w-14 bg-gray-50 flex flex-col items-center py-4 border-r border-[var(--color-border)] z-20 flex-shrink-0">

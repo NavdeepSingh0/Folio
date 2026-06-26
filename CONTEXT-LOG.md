@@ -104,5 +104,21 @@ Next slice: IDE Tabs & Split-Screen (Slice 7.5)
 What was built: Re-architected Home.tsx to support an array of tabs and panes. Implemented native HTML5 drag-and-drop tabs, a horizontal split-screen layout, and a smart edit mode that temporarily collapses the split to provide full editing space.
 Key decisions made: Used native HTML5 drag-and-drop instead of external libraries. Note: There is no SLICE-07.5.md file; it was executed dynamically at the user's command and not from a file.
 Blockers encountered: Vite import errors for TS interfaces (fixed by using `import type`).
-Next slice: TBD
+Next slice: Context Magic (Slice 8)
+```
+
+```
+[2026-06-26 14:15] SLICE: Context Magic (Slice 8)
+What was built: Configurable Study Assistant with dynamic parameter mapping and stacked artifact UI. Integrated offline semantic search using `langchain-ollama` to generate and cache `nomic-embed-text` embeddings natively in SQLite. Upgraded Revision Workspace to use presets mapped to the new unified API.
+Key decisions made: Implemented embeddings inside the existing SQLite `projects` table using a JSON-encoded array rather than adding heavy external vector DB dependencies like Chroma or FAISS, preserving offline portability.
+Blockers encountered: None.
+Next slice: Slice 9
+```
+
+```
+[2026-06-26 15:05] NON-SLICE: UI Enhancements & Bug Fixes
+What was built: Removed `select-none` from workspace containers to re-enable text selection. Built a custom animated `CustomSelect` dropdown component to replace native HTML selects in StudySidebar. Rewrote Knowledge Search rendering logic to display semantic matches as cards with similarity scores and text snippets instead of just filtering the hierarchy tree.
+Key decisions made: Used custom React state for dropdowns instead of importing Headless UI to keep dependencies light.
+Blockers encountered: Semantic search initially appeared broken to the user because projects created before Slice 8 had `NULL` embeddings, requiring a dummy save after downloading `nomic-embed-text` to backfill the database.
+Next slice: Slice 9
 ```

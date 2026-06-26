@@ -42,16 +42,35 @@ export function RevisionWorkspace(props: RevisionWorkspaceProps) {
   const handleGenerate = async () => {
     setIsLoading(true);
     setResult("");
+    
+    // Map preset to UnifiedStudyRequest
+    let type = "revision";
+    let difficulty = "Medium";
+    let length = "Medium";
+    
+    switch(activeTool) {
+      case "quick": length = "Short"; break;
+      case "one_page": length = "Medium"; break;
+      case "exam": difficulty = "University Exam"; length = "Detailed"; break;
+      case "last_minute": difficulty = "Hard"; length = "Short"; break;
+      case "formula": type = "formulas"; break;
+      case "concept": type = "concepts"; break;
+      case "mindmap": type = "mindmap"; break;
+    }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/revision/generate`, {
+      const response = await fetch(`http://localhost:8000/api/study/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          scope_type: scopeType,
-          scope_id: getScopeId(),
+          type,
+          difficulty,
+          quantity: "5",
+          length,
+          language: "English",
+          context_type: scopeType,
+          context_id: getScopeId(),
           custom_ids: scopeType === "custom" ? customIds : undefined,
-          tool: activeTool,
           model: props.model
         }),
       });
@@ -183,22 +202,28 @@ export function RevisionWorkspace(props: RevisionWorkspaceProps) {
                   )}
 
                   <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase">Revision Tool</h3>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase">Revision Presets</h3>
                     <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => setActiveTool("revision_sheet")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "revision_sheet" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                        <FileText size={16} /> Revision Sheet
+                      <button onClick={() => setActiveTool("quick")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "quick" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                        <Zap size={16} /> Quick Revision
                       </button>
-                      <button onClick={() => setActiveTool("mind_map")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "mind_map" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                        <Map size={16} /> Mind Map
+                      <button onClick={() => setActiveTool("one_page")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "one_page" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                        <FileText size={16} /> One Page Revision
                       </button>
-                      <button onClick={() => setActiveTool("cheat_sheet")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "cheat_sheet" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                        <Hash size={16} /> Cheat Sheet
+                      <button onClick={() => setActiveTool("exam")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "exam" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                        <HelpCircle size={16} /> Exam Revision
                       </button>
-                      <button onClick={() => setActiveTool("expected_questions")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "expected_questions" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                        <HelpCircle size={16} /> Expected Questions
+                      <button onClick={() => setActiveTool("last_minute")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "last_minute" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                        <Zap size={16} /> Last Minute
                       </button>
-                      <button onClick={() => setActiveTool("last_minute")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 col-span-2 transition-colors ${activeTool === "last_minute" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                        <Zap size={16} /> Last Minute Revision
+                      <button onClick={() => setActiveTool("formula")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "formula" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                        <Hash size={16} /> Formula Revision
+                      </button>
+                      <button onClick={() => setActiveTool("concept")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 transition-colors ${activeTool === "concept" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                        <BookOpen size={16} /> Concept Revision
+                      </button>
+                      <button onClick={() => setActiveTool("mindmap")} className={`p-2 border rounded text-xs flex flex-col items-center gap-1 col-span-2 transition-colors ${activeTool === "mindmap" ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                        <Map size={16} /> Mindmap Revision
                       </button>
                     </div>
                   </div>

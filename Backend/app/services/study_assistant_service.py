@@ -4,82 +4,115 @@ from langchain_core.prompts import PromptTemplate
 def get_llm(model_name: str):
     return OllamaLLM(model=model_name)
 
-def generate_flashcards_stream(text: str, model_name: str = "llama3.2"):
-    llm = get_llm(model_name)
-    prompt = PromptTemplate.from_template(
-        "You are an expert study assistant. Generate question-answer flashcards from the following notes.\n"
-        "Format each flashcard exactly like this:\n"
-        "Q: [Question here]\n"
-        "A: [Answer here]\n"
-        "---\n\n"
-        "Notes:\n{text}\n\nFlashcards:"
-    )
-    chain = prompt | llm
-    for token in chain.stream({"text": text}):
-        yield token
+def get_prompt_template(type_str: str) -> str:
+    if type_str == "flashcards":
+        return (
+            "You are an expert study assistant. Generate exactly {quantity} question-answer flashcards from the following context.\n"
+            "Difficulty: {difficulty}\n"
+            "Language: {language}\n"
+            "Format each flashcard EXACTLY like this:\n"
+            "Q: [Question here]\n"
+            "A: [Answer here]\n"
+            "---\n\n"
+            "Context:\n{context_text}\n\nFlashcards:"
+        )
+    elif type_str == "mcq":
+        return (
+            "You are an expert examiner. Generate exactly {quantity} Multiple Choice Questions (MCQs) from the following context.\n"
+            "Difficulty: {difficulty}\n"
+            "Language: {language}\n"
+            "Each MCQ must have 4 options (A, B, C, D) and specify the correct answer at the end of the question block.\n\n"
+            "Context:\n{context_text}\n\nMCQs:"
+        )
+    elif type_str == "short_q":
+        return (
+            "You are an expert examiner. Generate exactly {quantity} Short Answer Questions from the following context.\n"
+            "Difficulty: {difficulty}\n"
+            "Language: {language}\n"
+            "Provide the answer immediately below each question.\n\n"
+            "Context:\n{context_text}\n\nShort Questions:"
+        )
+    elif type_str == "long_q":
+        return (
+            "You are an expert examiner. Generate exactly {quantity} Long/Essay Questions from the following context.\n"
+            "Difficulty: {difficulty}\n"
+            "Language: {language}\n"
+            "Provide a detailed grading rubric or suggested answer points below each question.\n\n"
+            "Context:\n{context_text}\n\nLong Questions:"
+        )
+    elif type_str == "concepts":
+        return (
+            "You are an expert study assistant. Extract the top {quantity} key concepts and definitions from the following context.\n"
+            "Language: {language}\n"
+            "Format it as a clean Markdown list where the concept is bolded, followed by a {length} definition.\n\n"
+            "Context:\n{context_text}\n\nKey Concepts:"
+        )
+    elif type_str == "formulas":
+        return (
+            "You are an expert study assistant. Extract any formulas, equations, or mathematical relationships from the following context.\n"
+            "If there are none, reply with 'No formulas found in this context.'\n"
+            "For each formula, provide:\n"
+            "- **Formula:** (The formula)\n"
+            "- **Variables:** (What they mean)\n"
+            "- **Usage:** (When to use it)\n\n"
+            "Context:\n{context_text}\n\nFormula Sheet:"
+        )
+    elif type_str == "mindmap":
+        return (
+            "You are an expert study assistant. Generate a Mindmap of the following context.\n"
+            "Format: {length} (Use this to determine the style: 'Short' = Bullet Tree, 'Medium' = Indented Tree, 'Detailed' = Mermaid JS Markdown code block).\n"
+            "Language: {language}\n"
+            "IMPORTANT: Output ONLY markdown text. Do not output images. If Mermaid, wrap in ```mermaid blocks.\n\n"
+            "Context:\n{context_text}\n\nMindmap:"
+        )
+    elif type_str == "revision":
+        return (
+            "You are an expert study assistant. Create a {difficulty} revision sheet based on the following context.\n"
+            "Length: {length}. Language: {language}.\n"
+            "If it's 'Quick Revision', focus only on core bullet points.\n"
+            "If it's 'Exam Revision', include exam tips and common pitfalls.\n"
+            "Format it beautifully using Markdown headings, lists, and bold text.\n\n"
+            "Context:\n{context_text}\n\nRevision Sheet:"
+        )
+    elif type_str == "explain":
+        return (
+            "You are an expert tutor. Explain the following text.\n"
+            "Style: {difficulty} (e.g., 'Explain like Beginner', 'Analogy', 'Step-by-Step').\n"
+            "Length: {length}. Language: {language}.\n"
+            "Keep it engaging and easy to understand.\n\n"
+            "Text to explain:\n{context_text}\n\nExplanation:"
+        )
+    elif type_str == "custom":
+        return (
+            "You are an expert study assistant. Follow the user's custom instructions exactly.\n"
+            "Custom Instructions: {custom_prompt}\n\n"
+            "Context:\n{context_text}\n\nResponse:"
+        )
+    else:
+        return "Please process this context: {context_text}"
 
-def generate_questions_stream(text: str, difficulty: str = "Medium", model_name: str = "llama3.2"):
+def unified_generate_stream(
+    type_str: str,
+    difficulty: str,
+    quantity: str,
+    length: str,
+    language: str,
+    context_text: str,
+    model_name: str = "llama3.2",
+    custom_prompt: str = None
+):
     llm = get_llm(model_name)
-    prompt = PromptTemplate.from_template(
-        "You are an expert examiner. Generate practice questions from the following notes.\n"
-        "Difficulty level: {difficulty}.\n"
-        "Include a mix of:\n"
-        "- Multiple Choice Questions (with options A, B, C, D)\n"
-        "- Short Answer Questions\n"
-        "- Long Answer / Essay Questions\n\n"
-        "Provide the answers at the very end.\n\n"
-        "Notes:\n{text}\n\nPractice Questions:"
-    )
+    template = get_prompt_template(type_str)
+    
+    prompt = PromptTemplate.from_template(template)
     chain = prompt | llm
-    for token in chain.stream({"text": text, "difficulty": difficulty}):
-        yield token
-
-def generate_summary_stream(text: str, duration: str = "5-minute", model_name: str = "llama3.2"):
-    llm = get_llm(model_name)
-    prompt = PromptTemplate.from_template(
-        "You are an expert study assistant. Create a {duration} revision summary of the following notes.\n"
-        "If it's a 5-minute revision, focus only on the absolute core points.\n"
-        "If it's a 15-minute revision, include more context and sub-points.\n"
-        "If it's a one-page revision sheet, format it densely but neatly with bullet points and bold terms.\n\n"
-        "Notes:\n{text}\n\nRevision Summary:"
-    )
-    chain = prompt | llm
-    for token in chain.stream({"text": text, "duration": duration}):
-        yield token
-
-def generate_keywords_stream(text: str, model_name: str = "llama3.2"):
-    llm = get_llm(model_name)
-    prompt = PromptTemplate.from_template(
-        "You are an expert study assistant. Extract the top 10 key concepts, definitions, and keywords from the following notes.\n"
-        "Format it as a clean Markdown list where the keyword/concept is bolded, followed by its definition.\n\n"
-        "Notes:\n{text}\n\nKey Concepts & Definitions:"
-    )
-    chain = prompt | llm
-    for token in chain.stream({"text": text}):
-        yield token
-
-def generate_formula_sheet_stream(text: str, model_name: str = "llama3.2"):
-    llm = get_llm(model_name)
-    prompt = PromptTemplate.from_template(
-        "You are an expert study assistant. Extract any formulas, equations, or mathematical relationships from the following notes.\n"
-        "If there are no formulas, simply reply with 'No formulas found in these notes.'\n"
-        "If there are formulas, generate a Formula Summary with the following structure for each formula:\n"
-        "- **Formula:** (The formula itself)\n"
-        "- **Variables:** (List of variables and what they stand for)\n"
-        "- **Meaning / Usage:** (When and why to use this formula)\n\n"
-        "Notes:\n{text}\n\nFormula Sheet:"
-    )
-    chain = prompt | llm
-    for token in chain.stream({"text": text}):
-        yield token
-
-def explain_simpler_stream(text: str, model_name: str = "llama3.2"):
-    llm = get_llm(model_name)
-    prompt = PromptTemplate.from_template(
-        "You are an expert tutor. Explain the following text simply, as if I am learning it for the very first time.\n"
-        "Use analogies if helpful, and avoid overly complex jargon. Keep it engaging and easy to understand.\n\n"
-        "Text to explain:\n{text}\n\nSimple Explanation:"
-    )
-    chain = prompt | llm
-    for token in chain.stream({"text": text}):
+    
+    for token in chain.stream({
+        "difficulty": difficulty,
+        "quantity": quantity,
+        "length": length,
+        "language": language,
+        "context_text": context_text,
+        "custom_prompt": custom_prompt or ""
+    }):
         yield token

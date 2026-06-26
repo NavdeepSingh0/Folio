@@ -4,6 +4,7 @@ from typing import List, Optional
 from app.models.database import (
     save_project, get_projects, get_project, update_project, move_project, delete_project
 )
+from app.services.embeddings_service import generate_document_embeddings_json
 
 router = APIRouter()
 
@@ -28,6 +29,7 @@ class MoveProjectRequest(BaseModel):
 @router.post("/projects/save")
 async def api_save_project(request: SaveProjectRequest):
     try:
+        embedding_json = generate_document_embeddings_json(request.markdown_content)
         return save_project(
             title=request.title,
             source_filename=request.source_filename,
@@ -37,7 +39,8 @@ async def api_save_project(request: SaveProjectRequest):
             chapter_id=request.chapter_id,
             pages=request.pages,
             chunks=request.chunks,
-            generation_time=request.generation_time
+            generation_time=request.generation_time,
+            embedding=embedding_json
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -64,7 +67,16 @@ async def api_get_project(project_id: str):
 @router.patch("/projects/{project_id}")
 async def api_update_project(project_id: str, request: UpdateProjectRequest):
     try:
-        success = update_project(project_id, title=request.title, markdown_content=request.markdown_content)
+        embedding_json = None
+        if request.markdown_content is not None:
+            embedding_json = generate_document_embeddings_json(request.markdown_content)
+            
+        success = update_project(
+            project_id, 
+            title=request.title, 
+            markdown_content=request.markdown_content, 
+            embedding=embedding_json
+        )
         if not success:
             raise HTTPException(status_code=404, detail="Project not found")
         return {"status": "success"}
