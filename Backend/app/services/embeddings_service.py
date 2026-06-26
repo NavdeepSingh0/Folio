@@ -1,7 +1,7 @@
 import json
 import math
 from langchain_ollama import OllamaEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import MarkdownHeaderTextSplitter
 
 def get_embeddings_model():
     return OllamaEmbeddings(model="nomic-embed-text")
@@ -14,27 +14,61 @@ def compute_cosine_similarity(vec1, vec2):
         return 0.0
     return dot_product / (norm_a * norm_b)
 
-def generate_document_embeddings_json(text: str) -> str:
+def generate_document_embeddings_json(text: str, existing_embeddings_json: str = None) -> str:
     """
-    Chunks a document, generates embeddings for each chunk, 
+    Chunks a document using Markdown headers, generates embeddings for each chunk incrementally, 
     and returns a JSON string representing the array of chunks and their vectors.
     """
     if not text or len(text.strip()) == 0:
         return "[]"
         
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    chunks = splitter.split_text(text)
+    headers_to_split_on = [
+        ("#", "Header 1"),
+        ("##", "Header 2"),
+        ("###", "Header 3"),
+    ]
+    markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on, strip_headers=False)
+    md_header_splits = markdown_splitter.split_text(text)
+    chunks = [doc.page_content for doc in md_header_splits]
     
+    if not chunks:
+        chunks = [text]
+
+    existing_map = {}
+    if existing_embeddings_json:
+        try:
+            old_data = json.loads(existing_embeddings_json)
+            for item in old_data:
+                if "text" in item and "vector" in item:
+                    existing_map[item["text"]] = item["vector"]
+        except Exception:
+            pass
+
     embeddings_model = get_embeddings_model()
-    vectors = embeddings_model.embed_documents(chunks)
     
     data = []
-    for chunk, vector in zip(chunks, vectors):
-        data.append({
-            "text": chunk,
-            "vector": vector
-        })
-        
+    chunks_to_embed = []
+    chunk_indices = []
+    
+    for i, chunk in enumerate(chunks):
+        if chunk in existing_map:
+            data.append({
+                "text": chunk,
+                "vector": existing_map[chunk]
+            })
+        else:
+            data.append({
+                "text": chunk,
+                "vector": None
+            })
+            chunks_to_embed.append(chunk)
+            chunk_indices.append(i)
+            
+    if chunks_to_embed:
+        new_vectors = embeddings_model.embed_documents(chunks_to_embed)
+        for i, vector in zip(chunk_indices, new_vectors):
+            data[i]["vector"] = vector
+            
     return json.dumps(data)
 
 def generate_query_embedding(query: str) -> list[float]:

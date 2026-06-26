@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Play, Loader2, StopCircle, Copy, Save, FileText, CheckCircle2, BookOpen, ChevronDown } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 // Custom Dropdown Component
 function CustomSelect({ value, onChange, options, label }: { value: string, onChange: (v: string) => void, options: {value: string, label: string}[], label: string }) {
@@ -373,7 +374,9 @@ export function StudySidebar({
               </div>
               <div className="p-4 prose prose-sm max-w-none prose-indigo text-sm">
                 {res.content ? (
-                  <ReactMarkdown>{res.content}</ReactMarkdown>
+                  <div className="prose prose-sm prose-slate max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{res.content}</ReactMarkdown>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2 text-gray-400 italic">
                     <Loader2 size={12} className="animate-spin" /> Generating...

@@ -40,6 +40,7 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
             onChange={(e) => setModel(e.target.value)}
             className="w-full px-4 py-3 bg-[var(--color-background)] border border-[var(--color-border)] rounded-[var(--radius-base)] outline-none focus:border-[var(--color-primary)] text-[var(--color-text-primary)]"
           >
+            <option value="qwen3">qwen3 (8B)</option>
             <option value="llama3.2">llama3.2 (3B)</option>
             <option value="llama3.2:1b">llama3.2:1b (1B - Faster)</option>
             <option value="qwen2.5:0.5b">qwen2.5:0.5b (Fastest)</option>

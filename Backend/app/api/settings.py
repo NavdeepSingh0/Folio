@@ -8,7 +8,7 @@ router = APIRouter()
 SETTINGS_PATH = "data/settings.json"
 
 DEFAULT_SETTINGS = {
-    "default_model": "llama3.2",
+    "default_model": "qwen3",
     "default_style": "university_notes"
 }
 

@@ -122,3 +122,19 @@ Key decisions made: Used custom React state for dropdowns instead of importing H
 Blockers encountered: Semantic search initially appeared broken to the user because projects created before Slice 8 had `NULL` embeddings, requiring a dummy save after downloading `nomic-embed-text` to backfill the database.
 Next slice: Slice 9
 ```
+
+```
+[2026-06-26 15:24] SLICE: Document Intelligence Pipeline (Slice 9)
+What was built: Implemented Structure-Aware Chunking, Incremental Embedding Processing, LLM Document Classification, and a Preprocessing noise-reduction pipeline. Added Pipeline Metrics tracking and native Markdown document import support in the UI.
+Key decisions made: Used `MarkdownHeaderTextSplitter` for structural chunking. Incremental embeddings map old chunks to new ones by text matching to avoid unnecessary LLM calls. Classification uses a fast, lightweight LLM call only during document creation/importing.
+Blockers encountered: None.
+Next slice: Slice 9.5
+```
+
+```
+[2026-06-26 20:30] SLICE: Architecture Freeze & Generation Engine (Folio) (Slice 9.5)
+What was built: Migrated to a two-pass generation architecture (Folio). Built Planning & Generation services to output strict JSON schemas, an abstract Parser layer, and a SQLite cache for LearningObjects. Rendered markdown on-the-fly.
+Key decisions made: Implemented a GenerationEngine abstraction to support the Strangler Pattern. Stored LearningObject JSON directly in SQLite instead of Markdown. Renamed "chunks" to "topics" in domain vocabulary.
+Blockers encountered: None.
+Next slice: Slice 10
+```

@@ -98,7 +98,7 @@ def unified_generate_stream(
     length: str,
     language: str,
     context_text: str,
-    model_name: str = "llama3.2",
+    model_name: str = "qwen3",
     custom_prompt: str = None
 ):
     llm = get_llm(model_name)

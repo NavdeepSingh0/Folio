@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Collection, Unit, Chapter, Project } from "./Sidebar";
 import { Play, Loader2, X, FileText, Map, Hash, HelpCircle, Zap, BookOpen, Menu } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { useRef } from "react";
 
@@ -251,7 +252,7 @@ export function RevisionWorkspace(props: RevisionWorkspaceProps) {
             <div className="max-w-3xl mx-auto pt-10">
               {result ? (
                 <div className="prose prose-teal max-w-none" style={props.zoomStyle}>
-                  <ReactMarkdown>{result}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400 mt-32">

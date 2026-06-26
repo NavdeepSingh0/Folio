@@ -1,7 +1,7 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.llms import OllamaLLM
 
-def _get_llm(model: str = "llama3.2"):
+def _get_llm(model: str = "qwen3"):
     return OllamaLLM(model=model, temperature=0.3)
 
 async def generate_revision_sheet(context: str, model: str):

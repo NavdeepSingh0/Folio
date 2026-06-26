@@ -35,7 +35,7 @@ export function Home() {
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRevisionWorkspaceOpen, setIsRevisionWorkspaceOpen] = useState(false);
-  const [settings, setSettings] = useState({ default_model: "llama3.2", default_style: "university_notes" });
+  const [settings, setSettings] = useState({ default_model: "qwen3", default_style: "university_notes" });
 
   const { settings: workspaceSettings, updateSettings: updateWorkspaceSettings } = useWorkspaceSettings();
   const { zoomStyle } = useZoom(workspaceSettings.zoomLevel, (l) => updateWorkspaceSettings({ zoomLevel: l }));
@@ -172,6 +172,14 @@ export function Home() {
       
       const pages = parseInt(response.headers.get("X-Document-Pages") || "0", 10);
       const chunks = parseInt(response.headers.get("X-Document-Chunks") || "0", 10);
+      const classification = response.headers.get("X-Classification") || "Other";
+      const pipelineMetricsRaw = response.headers.get("X-Pipeline-Metrics") || "{}";
+      
+      let pipelineMetrics = {};
+      try {
+        pipelineMetrics = JSON.parse(pipelineMetricsRaw);
+      } catch (e) {}
+
       const startTime = Date.now();
       
       const reader = response.body.getReader();
@@ -179,6 +187,9 @@ export function Home() {
       let done = false;
       let fullMarkdown = "";
       let lastUpdate = Date.now();
+
+      // Instantly switch to Workspace view so the user can see the text streaming!
+      updateTab(tabId, { isUpload: false });
 
       while (!done) {
         const { value, done: readerDone } = await reader.read();
@@ -196,6 +207,12 @@ export function Home() {
       const topicMatch = fullMarkdown.match(/^#\s+(.+)$/m);
       const title = topicMatch && topicMatch[1].trim() ? topicMatch[1].trim() : tab.selectedFile.name;
       const generationTimeSec = (Date.now() - startTime) / 1000;
+      
+      pipelineMetrics = {
+        ...pipelineMetrics,
+        llm_time_sec: Number(generationTimeSec.toFixed(2)),
+        total_time_sec: Number(((pipelineMetrics as any).extract_time_sec || 0) + ((pipelineMetrics as any).clean_time_sec || 0) + ((pipelineMetrics as any).chunk_time_sec || 0) + generationTimeSec).toFixed(2)
+      };
 
       const saveRes = await fetch("http://localhost:8000/api/projects/save", {
         method: "POST",
@@ -208,7 +225,9 @@ export function Home() {
           markdown_content: fullMarkdown,
           pages,
           chunks,
-          generation_time: generationTimeSec
+          generation_time: generationTimeSec,
+          classification,
+          pipeline_metrics: JSON.stringify(pipelineMetrics)
         }),
       });
       
@@ -216,7 +235,6 @@ export function Home() {
         const savedProject = await saveRes.json();
         updateTab(tabId, { 
           title: savedProject.title,
-          isUpload: false,
           projectId: savedProject.id,
           metadata: savedProject,
           markdown: fullMarkdown,
@@ -229,7 +247,42 @@ export function Home() {
       }
 
     } catch (err: any) {
-      updateTab(tabId, { error: err.message || "An unexpected error occurred.", isGenerating: false });
+      updateTab(tabId, { isGenerating: false, error: err.message });
+    }
+  };
+
+  const handleImport = async (tabId: string) => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab || !tab.selectedFile) return;
+
+    updateTab(tabId, { isGenerating: true, error: "" });
+    const formData = new FormData();
+    formData.append("file", tab.selectedFile);
+
+    try {
+      const saveRes = await fetch("http://localhost:8000/api/projects/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!saveRes.ok) {
+        const errData = await saveRes.json().catch(() => null);
+        throw new Error(errData?.detail || "Failed to import notes");
+      }
+
+      const savedProject = await saveRes.json();
+      updateTab(tabId, { 
+        title: savedProject.title,
+        isUpload: false,
+        projectId: savedProject.id,
+        metadata: savedProject,
+        markdown: savedProject.markdown_content,
+        sourceFilename: savedProject.source_filename,
+        isGenerating: false
+      });
+      fetchHierarchy();
+    } catch (err: any) {
+      updateTab(tabId, { isGenerating: false, error: err.message });
     }
   };
 
@@ -432,6 +485,7 @@ export function Home() {
               onCustomInstructionsChange={(inst) => updateTab(activeTab.id, { customInstructions: inst })}
               onGenerate={() => handleGenerate(activeTab.id)}
               isGenerating={activeTab.isGenerating || false}
+              onImport={() => handleImport(activeTab.id)}
             />
           </div>
         </div>

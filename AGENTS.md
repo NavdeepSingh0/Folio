@@ -231,6 +231,26 @@ Estimated time: 8–12 hrs
 Risk level: MEDIUM
 Fallback if HIGH: Fallback to Current File and Current Chapter context selection only. Move knowledge search to Slice 11.
 
+---
+
+SLICE 9 — Document Intelligence
+Screens involved: Upload Workspace, Generation Pipeline, Project Workspace, Settings
+Backend work: Create dedicated preprocessing pipeline (Extract -> Clean -> Classify -> Chunk -> Cache -> Generate -> Save). Implement structure-aware chunking, markdown import parsing, smart document classification, and pipeline metrics tracking.
+Definition of done: Large documents generate faster, noise is automatically removed, Markdown files can be imported, cached processing reduces repeated work, processing metrics are visible, and pipeline stages are modular.
+Estimated time: 8–10 hrs
+Risk level: MEDIUM
+Fallback if HIGH: If incremental processing exceeds the time budget, fall back to regenerating the entire document while keeping preprocessing and caching intact.
+
+---
+
+SLICE 9.5 — Architecture Freeze & Generation Engine (Folio)
+Screens involved: None (architecture slice, existing generation pipeline only)
+Backend work: Freeze the Core Data Model (Document and LearningObject Pydantic models). Implement Stable Identifiers (UUID + Slug). Create Renderer Layer (MarkdownRenderer). Implement Two-Pass Generation Pipeline (Planning Pass -> JSON Outline -> Generation Pass -> Learning Objects -> MarkdownRenderer). Implement Token Budgets (Definition 30-50, Explanation 120-180, etc.). Implement Caching based on content_hash. Defer advanced Canonical Concept features.
+Definition of done: LearningObject is the primary storage model. MarkdownRenderer is the only active renderer. Two-pass generation is operational (JSON outline -> Learning Objects). Markdown is never directly output by the LLM. Token budgets are enforced. Stable IDs are implemented.
+Estimated time: 5–7 hrs
+Risk level: MEDIUM
+Fallback if HIGH: Implement the renderer layer and Learning Object schema first. Keep the existing single-pass generation call temporarily. Two-pass generation may be completed later.
+
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.
 - Auth goes in Slice 2 unless the entire product is behind auth and cannot be demoed without it.

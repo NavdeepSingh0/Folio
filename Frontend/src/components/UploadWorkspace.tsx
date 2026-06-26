@@ -10,6 +10,7 @@ export interface UploadWorkspaceProps {
   onCustomInstructionsChange: (instructions: string) => void;
   onGenerate: () => void;
   isGenerating: boolean;
+  onImport?: () => void;
 }
 
 export function UploadWorkspace({
@@ -21,8 +22,11 @@ export function UploadWorkspace({
   onCustomInstructionsChange,
   onGenerate,
   isGenerating,
+  onImport,
 }: UploadWorkspaceProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isMarkdown = selectedFile?.name.toLowerCase().endsWith('.md');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -53,7 +57,7 @@ export function UploadWorkspace({
         <input
           type="file"
           className="hidden"
-          accept=".pdf,.pptx"
+          accept=".pdf,.pptx,.md"
           ref={fileInputRef}
           onChange={handleFileChange}
           disabled={isGenerating}
@@ -65,7 +69,7 @@ export function UploadWorkspace({
           Upload your document
         </h3>
         <p className="text-[var(--color-text-secondary)] mb-6">
-          Drag and drop your PDF or PPTX file here, or click to browse.
+          Drag and drop your PDF, PPTX, or MD file here, or click to browse.
         </p>
         
         {selectedFile && (
@@ -84,55 +88,78 @@ export function UploadWorkspace({
       </div>
 
       {/* Configuration */}
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] p-6">
-        <h3 className="text-lg font-bold text-[var(--color-text-primary)] mb-4">Configuration</h3>
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-            Note Style
-          </label>
-          <select
-            value={noteStyle}
-            onChange={(e) => onStyleSelect(e.target.value)}
+      {isMarkdown ? (
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] p-6">
+          <h3 className="text-lg font-bold text-[var(--color-text-primary)] mb-4">Import Markdown</h3>
+          <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+            This file will be imported directly into StudyForge as a document. It will be indexed for Knowledge Search automatically without using the LLM generation pipeline.
+          </p>
+          <button
+            onClick={onImport || onGenerate}
             disabled={isGenerating}
-            className="w-full px-4 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] text-[var(--color-text-primary)]"
+            className="w-full bg-[var(--color-secondary)] hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-[var(--radius-base)] flex items-center justify-center gap-2 transition-colors"
           >
-            <option value="university_notes">University Notes</option>
-            <option value="beginner_friendly">Beginner Friendly</option>
-            <option value="revision_notes">Revision Notes</option>
-            <option value="cheat_sheet">Cheat Sheet</option>
-            <option value="interview_prep">Interview Preparation</option>
-          </select>
+            {isGenerating ? (
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                Importing...
+              </>
+            ) : (
+              "Import Document"
+            )}
+          </button>
         </div>
+      ) : (
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] p-6">
+          <h3 className="text-lg font-bold text-[var(--color-text-primary)] mb-4">Configuration</h3>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+              Note Style
+            </label>
+            <select
+              value={noteStyle}
+              onChange={(e) => onStyleSelect(e.target.value)}
+              disabled={isGenerating}
+              className="w-full px-4 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] text-[var(--color-text-primary)]"
+            >
+              <option value="university_notes">University Notes</option>
+              <option value="beginner_friendly">Beginner Friendly</option>
+              <option value="revision_notes">Revision Notes</option>
+              <option value="cheat_sheet">Cheat Sheet</option>
+              <option value="interview_prep">Interview Preparation</option>
+            </select>
+          </div>
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-            Custom Instructions <span className="text-gray-400 font-normal">(Optional)</span>
-          </label>
-          <textarea
-            value={customInstructions}
-            onChange={(e) => onCustomInstructionsChange(e.target.value)}
-            disabled={isGenerating}
-            placeholder="e.g. Focus on the mathematical proofs, ignore historical context."
-            className="w-full px-4 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] text-[var(--color-text-primary)] min-h-[100px] resize-y"
-          />
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+              Custom Instructions <span className="text-gray-400 font-normal">(Optional)</span>
+            </label>
+            <textarea
+              value={customInstructions}
+              onChange={(e) => onCustomInstructionsChange(e.target.value)}
+              disabled={isGenerating}
+              placeholder="e.g. Focus on the mathematical proofs, ignore historical context."
+              className="w-full px-4 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] text-[var(--color-text-primary)] min-h-[100px] resize-y"
+            />
+          </div>
+
+          <button
+            onClick={onGenerate}
+            disabled={!selectedFile || isGenerating}
+            className="w-full bg-[var(--color-primary)] hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-[var(--radius-base)] flex items-center justify-center gap-2 transition-colors"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                Generating Notes... This may take a moment.
+              </>
+            ) : (
+              "Generate Study Notes"
+            )}
+          </button>
         </div>
-
-        <button
-          onClick={onGenerate}
-          disabled={!selectedFile || isGenerating}
-          className="w-full bg-[var(--color-primary)] hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-[var(--radius-base)] flex items-center justify-center gap-2 transition-colors"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="animate-spin" size={20} />
-              Generating Notes... This may take a moment.
-            </>
-          ) : (
-            "Generate Study Notes"
-          )}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

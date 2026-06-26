@@ -1,4 +1,5 @@
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Download, ArrowLeft, Copy, Check, Save, Edit, X, Info, BookOpen } from "lucide-react";
 import { StudySidebar } from "./StudySidebar";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -16,6 +17,8 @@ export interface WorkspaceProps {
     pages?: number;
     chunks?: number;
     generation_time?: number;
+    classification?: string;
+    pipeline_metrics?: string;
   };
   onReset: () => void;
   onSave: (editedMarkdown: string) => void;
@@ -242,7 +245,7 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
                 <div className="flex-1 flex flex-col bg-white overflow-hidden h-full">
                   <div className="flex-1 overflow-auto p-8 lg:p-12">
                     <div className="prose prose-slate max-w-3xl mx-auto" style={zoomStyle}>
-                      <ReactMarkdown>{editedMarkdown}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{editedMarkdown}</ReactMarkdown>
                     </div>
                   </div>
                 </div>
@@ -253,7 +256,7 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
             <div className="flex-1 flex flex-col bg-white overflow-hidden h-full">
               <div className="flex-1 overflow-auto p-8 lg:p-12">
                 <div className="prose prose-slate max-w-3xl mx-auto" style={zoomStyle}>
-                  <ReactMarkdown>{initialMarkdown}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{initialMarkdown}</ReactMarkdown>
                 </div>
               </div>
             </div>
@@ -327,6 +330,38 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
                   <div className="font-medium text-gray-800">{metadata.generation_time?.toFixed(1) || "0.0"}s</div>
                 </div>
 
+                {metadata.classification && (
+                  <div>
+                    <div className="text-gray-500 text-xs mb-0.5">Classification</div>
+                    <div className="font-medium text-gray-800 bg-blue-50 text-blue-700 px-2 py-0.5 rounded inline-block text-xs border border-blue-100">{metadata.classification}</div>
+                  </div>
+                )}
+                
+                {metadata.pipeline_metrics && (
+                  <div>
+                    <div className="text-gray-500 text-xs mb-1">Pipeline Metrics</div>
+                    <div className="bg-gray-100 p-2 rounded text-xs text-gray-700 font-mono space-y-1">
+                      {(() => {
+                        try {
+                          const pm = JSON.parse(metadata.pipeline_metrics);
+                          return (
+                            <>
+                              {pm.extract_time_sec !== undefined && <div className="flex justify-between"><span>Extract:</span> <span>{pm.extract_time_sec}s</span></div>}
+                              {pm.clean_time_sec !== undefined && <div className="flex justify-between"><span>Clean:</span> <span>{pm.clean_time_sec}s</span></div>}
+                              {pm.chunk_time_sec !== undefined && <div className="flex justify-between"><span>Chunk:</span> <span>{pm.chunk_time_sec}s</span></div>}
+                              {pm.llm_time_sec !== undefined && <div className="flex justify-between"><span>LLM:</span> <span>{pm.llm_time_sec}s</span></div>}
+                              {pm.total_time_sec !== undefined && <div className="flex justify-between pt-1 border-t border-gray-200 mt-1 font-semibold"><span>Total:</span> <span>{pm.total_time_sec}s</span></div>}
+                              {pm.imported && <div>Imported directly (No LLM)</div>}
+                            </>
+                          );
+                        } catch (e) {
+                          return <div>Invalid metrics data</div>;
+                        }
+                      })()}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <div className="text-gray-500 text-xs mb-0.5">Created</div>
                   <div className="font-medium text-gray-800">{new Date(metadata.created_at).toLocaleDateString()}</div>
@@ -343,7 +378,7 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
             {isStudySidebarOpen && metadata && (
               <StudySidebar 
                 markdown={editedMarkdown} 
-                model={metadata.model || "llama3.2"} 
+                model={metadata.model || "qwen3"} 
                 onClose={() => setIsStudySidebarOpen(false)} 
                 projectId={projectId}
                 chapterId={chapterId}

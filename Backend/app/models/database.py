@@ -58,6 +58,17 @@ def init_db():
         )
     ''')
     
+    # Learning Object Cache
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS learning_object_cache (
+            id TEXT PRIMARY KEY,
+            content_hash TEXT NOT NULL,
+            renderer_version INTEGER DEFAULT 1,
+            learning_object_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    ''')
+    
     # Add new columns if they don't exist
     try:
         cursor.execute("ALTER TABLE projects ADD COLUMN pages INTEGER DEFAULT 0")
@@ -78,7 +89,40 @@ def init_db():
         cursor.execute("ALTER TABLE projects ADD COLUMN embedding TEXT")
     except sqlite3.OperationalError:
         pass
+        
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN classification TEXT")
+    except sqlite3.OperationalError:
+        pass
+        
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN pipeline_metrics TEXT")
+    except sqlite3.OperationalError:
+        pass
     
+    conn.commit()
+    conn.close()
+
+# CRUD for Learning Object Cache
+def get_cached_learning_objects(content_hash: str) -> list:
+    """Returns a list of cached LearningObject JSON strings for a given content hash."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT learning_object_json FROM learning_object_cache WHERE content_hash = ?', (content_hash,))
+    results = cursor.fetchall()
+    conn.close()
+    return [row[0] for row in results]
+
+def cache_learning_object(content_hash: str, lo_json: str):
+    """Caches a single LearningObject JSON string."""
+    obj_id = str(uuid.uuid4())
+    created_at = datetime.utcnow().isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO learning_object_cache (id, content_hash, renderer_version, learning_object_json, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (obj_id, content_hash, 1, lo_json, created_at))
     conn.commit()
     conn.close()
 
@@ -236,7 +280,7 @@ def delete_chapter(cid: str) -> bool:
     return rows_affected > 0
 
 # Projects
-def save_project(title: str, source_filename: str, study_style: str, model: str, markdown_content: str, chapter_id: str = None, pages: int = 0, chunks: int = 0, generation_time: float = 0.0, embedding: str = None) -> dict:
+def save_project(title: str, source_filename: str, study_style: str, model: str, markdown_content: str, chapter_id: str = None, pages: int = 0, chunks: int = 0, generation_time: float = 0.0, embedding: str = None, classification: str = None, pipeline_metrics: str = None) -> dict:
     os.makedirs("output", exist_ok=True)
     project_id = str(uuid.uuid4())
     markdown_path = f"output/{project_id}.md"
@@ -250,9 +294,9 @@ def save_project(title: str, source_filename: str, study_style: str, model: str,
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO projects (id, title, source_filename, study_style, model, chapter_id, created_at, last_modified, markdown_path, word_count, pages, chunks, generation_time, embedding)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (project_id, title, source_filename, study_style, model, chapter_id, created_at, created_at, markdown_path, word_count, pages, chunks, generation_time, embedding))
+        INSERT INTO projects (id, title, source_filename, study_style, model, chapter_id, created_at, last_modified, markdown_path, word_count, pages, chunks, generation_time, embedding, classification, pipeline_metrics)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (project_id, title, source_filename, study_style, model, chapter_id, created_at, created_at, markdown_path, word_count, pages, chunks, generation_time, embedding, classification, pipeline_metrics))
     
     conn.commit()
     conn.close()
@@ -270,7 +314,9 @@ def save_project(title: str, source_filename: str, study_style: str, model: str,
         "word_count": word_count,
         "pages": pages,
         "chunks": chunks,
-        "generation_time": generation_time
+        "generation_time": generation_time,
+        "classification": classification,
+        "pipeline_metrics": pipeline_metrics
     }
 
 def get_projects() -> list[dict]:
@@ -301,7 +347,7 @@ def get_project(project_id: str) -> dict:
         project["markdown_content"] = "Error: Markdown file not found on disk."
     return project
 
-def update_project(project_id: str, title: str = None, markdown_content: str = None, embedding: str = None) -> bool:
+def update_project(project_id: str, title: str = None, markdown_content: str = None, embedding: str = None, classification: str = None, pipeline_metrics: str = None) -> bool:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -319,22 +365,43 @@ def update_project(project_id: str, title: str = None, markdown_content: str = N
         word_count = len(markdown_content.split())
         last_modified = datetime.utcnow().isoformat()
         
-        # Determine query components based on what is provided
-        if title is not None and embedding is not None:
-            cursor.execute('UPDATE projects SET title = ?, last_modified = ?, word_count = ?, embedding = ? WHERE id = ?', 
-                           (title, last_modified, word_count, embedding, project_id))
-        elif title is not None:
-            cursor.execute('UPDATE projects SET title = ?, last_modified = ?, word_count = ? WHERE id = ?', 
-                           (title, last_modified, word_count, project_id))
-        elif embedding is not None:
-            cursor.execute('UPDATE projects SET last_modified = ?, word_count = ?, embedding = ? WHERE id = ?', 
-                           (last_modified, word_count, embedding, project_id))
-        else:
-            cursor.execute('UPDATE projects SET last_modified = ?, word_count = ? WHERE id = ?', 
-                           (last_modified, word_count, project_id))
-    else:
+        # Build dynamic update query
+        update_fields = ["last_modified = ?", "word_count = ?"]
+        params = [last_modified, word_count]
+        
         if title is not None:
-            cursor.execute('UPDATE projects SET title = ? WHERE id = ?', (title, project_id))
+            update_fields.append("title = ?")
+            params.append(title)
+        if embedding is not None:
+            update_fields.append("embedding = ?")
+            params.append(embedding)
+        if classification is not None:
+            update_fields.append("classification = ?")
+            params.append(classification)
+        if pipeline_metrics is not None:
+            update_fields.append("pipeline_metrics = ?")
+            params.append(pipeline_metrics)
+            
+        params.append(project_id)
+        query = f"UPDATE projects SET {', '.join(update_fields)} WHERE id = ?"
+        cursor.execute(query, tuple(params))
+    else:
+        update_fields = []
+        params = []
+        if title is not None:
+            update_fields.append("title = ?")
+            params.append(title)
+        if classification is not None:
+            update_fields.append("classification = ?")
+            params.append(classification)
+        if pipeline_metrics is not None:
+            update_fields.append("pipeline_metrics = ?")
+            params.append(pipeline_metrics)
+            
+        if update_fields:
+            params.append(project_id)
+            query = f"UPDATE projects SET {', '.join(update_fields)} WHERE id = ?"
+            cursor.execute(query, tuple(params))
             
     rows_affected = cursor.rowcount
     conn.commit()
