@@ -3,7 +3,7 @@ import json
 import logging
 from app.services.llm_service import generate_markdown_notes_stream
 from app.services.parsers import DocumentParser
-from app.services.chunking_service import chunk_text
+from app.services.document_intelligence import build_planner_input
 from app.services.planning_service import generate_topic_outline
 from app.services.generation_service import generate_learning_objects
 from app.services.renderer import MarkdownRenderer
@@ -28,56 +28,53 @@ class TwoPassSequentialEngine:
     pass
 
 class TwoPassBatchEngine:
-    def generate(self, text: str, style: str, custom_instructions: Optional[str], model: str) -> Generator[str, None, None]:
-        # Step 1: Topic Segmentation (previously "chunking")
-        topics = chunk_text(text, chunk_size=2500, chunk_overlap=100)
+    def generate(self, doc, style: str, custom_instructions: Optional[str], model: str) -> Generator[str, None, None]:
+        # Step 1: Document Intelligence
+        planner_input = build_planner_input(doc)
         
-        if not topics:
+        if not planner_input.filtered_slides:
             yield ""
             return
             
         renderer = MarkdownRenderer()
         
-        for i, topic_text in enumerate(topics):
-            content_hash = LearningObject.compute_hash(topic_text) + "_v2"
-            
-            # Check SQLite Cache
-            cached_jsons = get_cached_learning_objects(content_hash)
-            
-            if cached_jsons:
-                logger.info(f"Cache hit for topic {i}")
-                objects = [LearningObject(**json.loads(j)) for j in cached_jsons]
-                # Render to markdown on-demand
-                yield renderer.render(objects)
-                continue
-                
-            logger.info(f"Cache miss for topic {i}. Running Two-Pass Batch Engine.")
-            # Pass 1: Planning
-            outline = generate_topic_outline(topic_text, model_name=model)
-            
-            # Pass 2: Generation (Variant C)
-            parse_result = generate_learning_objects(
-                topic_text=topic_text, 
-                outline=outline, 
-                document_id="temp-doc", 
-                content_hash=content_hash,
-                model_name=model
-            )
-            
-            if not parse_result.success:
-                logger.error(f"Generation failed at stage: {parse_result.stage}. Reason: {parse_result.error}")
-                yield f"\n\n> [!WARNING]\n> Failed to generate content for this section. Error: {parse_result.error}\n\n"
-                continue
-                
-            objects = parse_result.learning_objects
-            
-            # Cache the new objects
-            for obj in objects:
-                cache_learning_object(content_hash, obj.model_dump_json())
-                
-            # Render to markdown on-demand and yield the block
+        # Process the entire document as a single "topic" for the planner
+        content_hash = LearningObject.compute_hash(planner_input.model_dump_json()) + "_v3"
+        
+        # Check SQLite Cache
+        cached_jsons = get_cached_learning_objects(content_hash)
+        
+        if cached_jsons:
+            logger.info("Cache hit for document")
+            objects = [LearningObject(**json.loads(j)) for j in cached_jsons]
             yield renderer.render(objects)
+            return
             
-            # Yield a separator between topics if not the last one
-            if i < len(topics) - 1:
-                yield "\n\n---\n\n"
+        logger.info("Cache miss. Running Two-Pass Batch Engine.")
+        # Pass 1: Planning
+        outline = generate_topic_outline(planner_input, model_name=model)
+        
+        # Pass 2: Generation (Variant C)
+        topic_text_for_generation = "\n\n---\n\n".join(s.text for s in planner_input.filtered_slides)
+        
+        parse_result = generate_learning_objects(
+            topic_text=topic_text_for_generation, 
+            outline=outline, 
+            document_id="temp-doc", 
+            content_hash=content_hash,
+            model_name=model
+        )
+        
+        if not parse_result.success:
+            logger.error(f"Generation failed at stage: {parse_result.stage}. Reason: {parse_result.error}")
+            yield f"\n\n> [!WARNING]\n> Failed to generate content for this section. Error: {parse_result.error}\n\n"
+            return
+            
+        objects = parse_result.learning_objects
+        
+        # Cache the new objects
+        for obj in objects:
+            cache_learning_object(content_hash, obj.model_dump_json())
+            
+        # Render to markdown on-demand and yield the block
+        yield renderer.render(objects)

@@ -36,10 +36,12 @@ async def generate_notes(
         
         # 1. Extract structural text
         start_extract = time.time()
-        extracted_text, num_pages = extract_structured_text(file_bytes, file.filename)
+        extracted_doc = extract_structured_text(file_bytes, file.filename)
+        num_pages = extracted_doc.page_count
+        extracted_text = extracted_doc.to_string()
         extract_time = time.time() - start_extract
         
-        if not extracted_text.strip():
+        if not extracted_doc.slides:
             raise HTTPException(status_code=422, detail="Could not extract any text from the document.")
 
         # 2. Preprocess / Clean
@@ -66,11 +68,14 @@ async def generate_notes(
         # 5. Stream Generation
         if USE_TWO_PASS_ENGINE:
             engine = TwoPassBatchEngine()
+            # The new engine expects ExtractedDocument, legacy expects string
+            generate_input = extracted_doc 
         else:
             engine = LegacyEngine()
+            generate_input = cleaned_text
             
         return StreamingResponse(
-            engine.generate(cleaned_text, style, custom_instructions, model),
+            engine.generate(generate_input, style, custom_instructions, model),
             media_type="text/plain",
             headers={
                 "X-Document-Pages": str(num_pages),

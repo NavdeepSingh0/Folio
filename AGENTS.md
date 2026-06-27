@@ -291,6 +291,16 @@ Estimated time: 2–3 hrs
 Risk level: MEDIUM
 Fallback if HIGH: If a large real-world lecture fails to process entirely due to memory/token limits, chunk the document manually and run the validation on a subset to prove quality, then address throughput in Slice 11.
 
+---
+
+SLICE 9.6 — Document Intelligence Refinement
+Screens involved: None
+Backend work: Refine document extraction into an educationally-aware planner input deterministically (no LLMs). Introduce `app/services/document_intelligence.py` to classify slides (CONTENT, EXAMPLE, COMPARISON, QUIZ, REFERENCE, etc.), extract exam hints, detect image-heavy slides, and build a `PlannerInput` object containing a `DocumentProfile`. Update `planning_service.py` to consume this richer input. Add a `confidence` float to each `ClassifiedSlide`.
+Definition of done: Every slide is deterministically classified. Planner receives only relevant educational material (excluding noise). Quiz questions enrich exam hints rather than forming isolated LearningObjects. Image-heavy slides are identified. 
+Estimated time: 3–4 hrs
+Risk level: MEDIUM
+Fallback if HIGH: If deterministic classification proves too brittle across diverse documents, loosen the rules to be highly permissive (classifying most things as CONTENT) to prevent data loss.
+
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.
 - Auth goes in Slice 2 unless the entire product is behind auth and cannot be demoed without it.

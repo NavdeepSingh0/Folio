@@ -4,8 +4,10 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 import io
 import re
 
-def extract_structured_text(file_bytes: bytes, filename: str) -> tuple[str, int]:
-    """Extracts structured text from a PDF or PPTX and returns (text, page_count)."""
+from app.models.document_profile import ExtractedSlide, ExtractedDocument
+
+def extract_structured_text(file_bytes: bytes, filename: str) -> ExtractedDocument:
+    """Extracts structured text from a PDF or PPTX and returns an ExtractedDocument."""
     if filename.lower().endswith(".pdf"):
         return _extract_pdf_structure(file_bytes)
     elif filename.lower().endswith(".pptx"):
@@ -13,9 +15,9 @@ def extract_structured_text(file_bytes: bytes, filename: str) -> tuple[str, int]
     else:
         raise ValueError("Unsupported file format. Please upload PDF or PPTX.")
 
-def _extract_pptx_structure(file_bytes: bytes) -> tuple[str, int]:
+def _extract_pptx_structure(file_bytes: bytes) -> ExtractedDocument:
     prs = Presentation(io.BytesIO(file_bytes))
-    markdown_content = []
+    slides = []
     
     for i, slide in enumerate(prs.slides):
         slide_text = []
@@ -73,14 +75,13 @@ def _extract_pptx_structure(file_bytes: bytes) -> tuple[str, int]:
             elif shape.shape_type == getattr(MSO_SHAPE_TYPE, 'PICTURE', 13):
                 slide_text.append(f"[Figure: Image on Slide {i + 1}]")
 
-        markdown_content.append("\n".join(slide_text))
-        markdown_content.append("\n---\n")
+        slides.append(ExtractedSlide(slide_number=i+1, text="\n".join(slide_text)))
 
-    return "\n".join(markdown_content), len(prs.slides)
+    return ExtractedDocument(slides=slides, page_count=len(prs.slides))
 
-def _extract_pdf_structure(file_bytes: bytes) -> tuple[str, int]:
+def _extract_pdf_structure(file_bytes: bytes) -> ExtractedDocument:
     pdf_document = fitz.open(stream=file_bytes, filetype="pdf")
-    markdown_content = []
+    slides = []
 
     for page_num in range(pdf_document.page_count):
         page = pdf_document.load_page(page_num)
@@ -130,17 +131,9 @@ def _extract_pdf_structure(file_bytes: bytes) -> tuple[str, int]:
                             else:
                                 page_text.append(text)
         
-        markdown_content.append("\n\n".join(page_text))
-        markdown_content.append("\n---\n")
+        slides.append(ExtractedSlide(slide_number=page_num+1, text="\n\n".join(page_text)))
 
     page_count = pdf_document.page_count
     pdf_document.close()
     
-    # 4. Reference Grouping
-    full_text = "\n".join(markdown_content)
-    
-    # Simple regex to group references if they are scattered, but realistically
-    # they are usually at the end. We will let the LLM handle semantic grouping,
-    # but the structural extraction at least preserves them cleanly.
-    
-    return full_text, page_count
+    return ExtractedDocument(slides=slides, page_count=page_count)
