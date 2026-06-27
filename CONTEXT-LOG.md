@@ -146,3 +146,19 @@ Key decisions made: Engine settings are now permanently frozen. The benchmark su
 Blockers encountered: None.
 Next slice: Slice 10
 ```
+
+```
+[2026-06-27 14:58] PLANNING: Output Engine: Personal Knowledge Rendering (Slice 10)
+What was built: Defined the architecture and backlog entry for Slice 10. The focus is shifting from generation architecture to educational quality and modular markdown rendering based on 3 core reference files.
+Key decisions made: The renderer is the contract; it must be built and validated with hardcoded objects *before* any LLM prompt engineering begins.
+Blockers encountered: None.
+Next slice: Execute Slice 10
+```
+
+```
+[2026-06-27 16:35] SLICE: SLICE 10 & 10b — Output Engine & Educational Intelligence Calibration
+What was built: Expanded LearningObject schema with 11 optional educational capabilities, built a pure-function Markdown renderer, and implemented an Educational Analysis planner that deterministically requests specific fields via a dynamic JSON schema.
+Key decisions made: Shifted capability mapping from the LLM to a deterministic Python function (map_capabilities) based on boolean signals to eliminate hallucinated fields. Updated parser to ensure no optional fields are stripped during Pydantic validation.
+Blockers encountered: The legacy JSON parser was hardcoded to only accept 4 fields and silently dropped our new capabilities, requiring a parser update to pass all fields through.
+Next slice: SLICE 11
+```

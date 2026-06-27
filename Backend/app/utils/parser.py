@@ -80,6 +80,15 @@ def parse_generation_response(raw_response: str, outline, document_id: str, cont
                 explanation=item.get("explanation", ""),
                 example=item.get("example"),
                 exam_tip=item.get("exam_tip"),
+                code_example=item.get("code_example"),
+                algorithm_steps=item.get("algorithm_steps"),
+                formula=item.get("formula"),
+                comparison_table=item.get("comparison_table"),
+                diagram_description=item.get("diagram_description"),
+                memory_trick=item.get("memory_trick"),
+                common_mistakes=item.get("common_mistakes"),
+                prerequisites=item.get("prerequisites"),
+                key_takeaways=item.get("key_takeaways"),
                 source_slides=slides
             )
             learning_objects.append(lo)

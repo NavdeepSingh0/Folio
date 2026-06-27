@@ -10,7 +10,9 @@ def generate_topic_outline(topic_text: str, model_name: str = "qwen3") -> TopicO
     """Pass 1: Reads a topic and outputs a strict JSON outline."""
     
     prompt = """
-You are an expert curriculum planner. Read the following topic text and extract its core concepts.
+You are an expert curriculum planner (like a university professor). Read the following topic text and extract its core concepts.
+For each concept, analyze its educational characteristics to help determine what teaching aids (formulas, diagrams, code, memory tricks) are appropriate based ON THE TEXT PROVIDED.
+
 Return ONLY a valid JSON object matching the exact schema below. Do not output any markdown formatting, backticks, or explanation.
 
 SCHEMA:
@@ -20,17 +22,28 @@ SCHEMA:
   "concepts": [
     {{
       "title": "Name of concept 1",
-      "slides": [1, 2] 
+      "slides": [1, 2],
+      "educational_analysis": {{
+        "contains_algorithm": true,
+        "contains_formula": true,
+        "contains_code": true,
+        "contains_comparison": true,
+        "contains_diagram": true,
+        "requires_memorisation": true,
+        "commonly_examined": true,
+        "has_common_errors": true
+      }}
     }}
   ]
 }}
-Note: "slides" MUST be an array of integers only. Do not put strings in the slides array. If unknown, use an empty array [].
+Note: "slides" MUST be an array of integers only. If a characteristic applies, set the boolean to true.
+
 
 TOPIC TEXT:
 {text}
 """
     try:
-        llm = OllamaLLM(model=model_name, format="json") # Using format="json" if supported by the model
+        llm = OllamaLLM(model=model_name, format="json", keep_alive=-1) # Using format="json" if supported by the model
         template = PromptTemplate.from_template(prompt)
         chain = template | llm
         

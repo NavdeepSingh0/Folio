@@ -39,7 +39,7 @@ class TwoPassBatchEngine:
         renderer = MarkdownRenderer()
         
         for i, topic_text in enumerate(topics):
-            content_hash = LearningObject.compute_hash(topic_text)
+            content_hash = LearningObject.compute_hash(topic_text) + "_v2"
             
             # Check SQLite Cache
             cached_jsons = get_cached_learning_objects(content_hash)

@@ -261,6 +261,36 @@ Estimated time: 4–6 hrs
 Risk level: HIGH
 Fallback if HIGH: Determine precise failure points (token limits, batch limits). Automatically constrain generation to validated limits. Re-run benchmark. If TwoPassBatchEngine still fails within limits, fallback to TwoPassSequentialEngine as default.
 
+---
+
+SLICE 10 — Output Engine: Personal Knowledge Rendering
+Screens involved: None (core backend processing)
+Backend work: Expand LearningObject schema with optional capabilities (code_example, diagram_description, memory_trick, etc.). Create independent, pure-function Markdown rendering components (Heading Renderer, Definition Renderer, Mermaid Renderer, etc.). Create hardcoded renderer acceptance tests. Update Planning & Generation prompts to populate the expanded schema. Run final educational benchmarks across 3 document types.
+Definition of done: Renderer faithfully reproduces study patterns from 3 reference Markdown uploads. Generation Engine successfully populates the expanded schema. Real lecture documents produce notes that are educationally superior to the LegacyEngine and require no manual LLM re-prompting.
+Estimated time: 5–8 hrs
+Risk level: HIGH
+Fallback if HIGH: Fallback to basic Markdown structure without advanced Mermaid/table components if model hallucination becomes unmanageable with expanded schemas.
+
+---
+
+SLICE 10b — Phase 5: Educational Intelligence Calibration
+Screens involved: None (pipeline diagnostics & prompt alignment only)
+Backend work: Refactor `planning_service.py` to stop picking capabilities directly, and instead perform "Educational Analysis" (detecting algorithms, formulas, code, memorization needs, etc.). Implement a deterministic python Capability Mapper that translates the Educational Analysis booleans into the required renderer capabilities. Log every stage (Document -> Planner -> Analysis -> Capabilities -> Generation -> LearningObject -> Markdown) for a single concept (Banker's Algorithm) to identify capability drops.
+Definition of done: The pipeline is fully instrumented. Every missing educational section can be traced. The planner consistently identifies educational opportunities without needing to know renderer internal fields. The Generation engine correctly populates requested capabilities. The renderer naturally displays richer notes.
+Estimated time: 4–6 hrs
+Risk level: HIGH
+Fallback if HIGH: Revert to the LLM directly choosing capabilities if the deterministic mapping proves too inflexible.
+
+---
+
+SLICE 10c — Phase 6: Final Production Validation
+Screens involved: None (production benchmarking)
+Backend work: Cleanup tasks: 1) Update Generation Prompt to strictly route code/syntax to `code_example`. 2) Add Mermaid validation to `renderer.py` to prevent broken markdown. Real World Validation: Run a script `benchmark/production_validation.py` on a genuine large university lecture to measure End-to-End Timing, LearningObjects per Second, Capability Usage distribution, and Renderer Statistics. Generate a `production_validation_report.md` evaluating the true educational quality and system throughput.
+Definition of done: Code examples route correctly. Non-mermaid diagrams gracefully fallback to standard notes. Real lecture processed without parser/schema/renderer failures. Throughput metrics recorded. Educational quality is judged suitable for studying without external AI tools. Production report generated.
+Estimated time: 2–3 hrs
+Risk level: MEDIUM
+Fallback if HIGH: If a large real-world lecture fails to process entirely due to memory/token limits, chunk the document manually and run the validation on a subset to prove quality, then address throughput in Slice 11.
+
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.
 - Auth goes in Slice 2 unless the entire product is behind auth and cannot be demoed without it.
