@@ -11,7 +11,7 @@ from app.services.planning_service import generate_topic_outline
 from app.services.capability_resolver import resolve_capabilities
 from app.services.educational_context_builder import build_educational_context
 from app.services.generation_service import generate_learning_objects
-from app.services.renderer import MarkdownRenderer
+from app.renderers.markdown_renderer import MarkdownRenderer
 from app.config.capability_profiles import BlockType
 from app.config.educational_policy import STANDARD_POLICY
 from app.services.educational_signal_builder import build_signals
