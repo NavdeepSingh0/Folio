@@ -43,10 +43,10 @@ def generate_learning_objects(
         '"definition": "A precise, one-sentence definition"',
         '"explanation": "A clear, structured explanation"'
     ]
-    if "example" in all_requested_caps: schema_fields.append('"example": "Extract the example from the text (or null)"')
-    if "exam_tip" in all_requested_caps: schema_fields.append('"exam_tip": "Extract the exam tip (or null)"')
-    if "code_example" in all_requested_caps: schema_fields.append('"code_example": "Extract the source code (or null)"')
-    if "algorithm_steps" in all_requested_caps: schema_fields.append('"algorithm_steps": ["extract step 1", "extract step 2"] (or null)')
+    if "example" in all_requested_caps: schema_fields.append('"example": "Extract a conceptual example (Do NOT put code here)"')
+    if "exam_tip" in all_requested_caps: schema_fields.append('"exam_tip": "Extract the exam tip"')
+    if "code_example" in all_requested_caps: schema_fields.append('"code_example": "Extract implementation snippets, Java/C++/Python code, and syntax demonstrations here"')
+    if "algorithm_steps" in all_requested_caps: schema_fields.append('"algorithm_steps": ["extract step 1", "extract step 2"]')
     if "formula" in all_requested_caps: schema_fields.append('"formula": "Extract the LaTeX formula (or null)"')
     if "comparison_table" in all_requested_caps: schema_fields.append('"comparison_table": [{"col1": "val", "col2": "val"}] (or null)')
     if "diagram_description" in all_requested_caps: schema_fields.append('"diagram_description": "Extract the diagram syntax (or null)"')

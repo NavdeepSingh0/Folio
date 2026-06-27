@@ -53,7 +53,14 @@ def render_comparison_table(obj: LearningObject) -> str:
 def render_mermaid_diagram(obj: LearningObject) -> str:
     if not obj.diagram_description:
         return ""
-    return f"```mermaid\n{obj.diagram_description}\n```\n\n"
+        
+    content = obj.diagram_description.strip()
+    valid_keywords = ["graph", "flowchart", "sequenceDiagram", "classDiagram", "stateDiagram", "journey", "gantt"]
+    
+    if any(content.startswith(kw) for kw in valid_keywords):
+        return f"```mermaid\n{content}\n```\n\n"
+    else:
+        return f"> [!NOTE]\n> **Diagram Description:** {content}\n\n"
 
 def render_example(obj: LearningObject) -> str:
     if not obj.example:
