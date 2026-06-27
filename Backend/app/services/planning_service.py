@@ -26,9 +26,10 @@ You are an expert curriculum planner (like a university professor). Read the fol
 You will extract distinct concepts, identify their type from a fixed list, and estimate your confidence in this extraction.
 
 CRITICAL INSTRUCTIONS ON GRANULARITY:
-- A Learning Object represents one complete teachable concept.
-- Do NOT split a concept into its implementation details, time complexity, applications, supporting mechanisms, or algorithm components. These belong inside the parent concept.
-- Only generate multiple concepts if the lecture introduces multiple independent topics that could each be studied entirely separately.
+- A Study Topic represents one comprehensive study session.
+- Do NOT output fragmented concepts (e.g. separating "Bellman Ford", "Time Complexity", "Applications").
+- Group sub-concepts into the `covers` array of a single parent topic. (e.g. `covers: ["Definition", "Edge Relaxation", "Time Complexity", "Applications"]`).
+- Only generate multiple topics if the lecture introduces completely independent topics (e.g., "Bellman Ford Algorithm" and "Dijkstra's Algorithm").
 
 Allowed Concept Types: "algorithm", "definition", "process", "comparison", "formula", "code_concept", "theory", "general"
 
@@ -42,16 +43,17 @@ EXAM FOCUS HINTS (Derived from quizzes/summaries):
 
 Return ONLY a valid JSON object matching the exact schema below. Do not output any markdown formatting, backticks, or explanation.
 
-SCHEMA:
+OUTPUT FORMAT (STRICT JSON):
 {{
-  "topic": "The overarching name of the topic",
-  "exam_focus": "High, Medium, or Low",
+  "topic": "The overarching theme",
+  "exam_focus": "High/Medium/Low",
   "concepts": [
     {{
-      "title": "Name of concept 1",
+      "title": "Topic Name (e.g., Bellman Ford Algorithm)",
       "type": "algorithm",
       "confidence": 0.95,
-      "slides": [1, 2]
+      "covers": ["Time Complexity", "Applications", "Negative Cycle Detection"],
+      "slides": [3, 4, 5]
     }}
   ]
 }}

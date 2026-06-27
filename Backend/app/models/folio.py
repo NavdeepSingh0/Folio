@@ -20,8 +20,9 @@ class Document(BaseModel):
 
 class ConceptOutline(BaseModel):
     title: str
-    type: str
-    confidence: float
+    type: str = "general"
+    confidence: float = 1.0
+    covers: List[str] = []
     slides: Optional[List[int]] = None
 
 class TopicOutline(BaseModel):
@@ -41,18 +42,22 @@ class LearningObject(BaseModel):
     
     # LLM Generated Fields (The actual knowledge)
     title: str
+
+    # Required sections
     definition: str
     explanation: str
-    example: Optional[str] = None
-    exam_tip: Optional[str] = None
-    code_example: Optional[str] = None
+
+    # Optional sections based on CapabilityProfile
     algorithm_steps: Optional[List[str]] = None
     formula: Optional[str] = None
-    comparison_table: Optional[List[Dict[str, str]]] = None
+    code_example: Optional[str] = None
+    comparison_table: Optional[List[dict]] = None
     diagram_description: Optional[str] = None
+    example: Optional[str] = None
     memory_trick: Optional[str] = None
     common_mistakes: Optional[str] = None
     prerequisites: Optional[List[str]] = None
+    exam_tip: Optional[str] = None
     key_takeaways: Optional[List[str]] = None
     
     # Code Generated Fields
@@ -72,3 +77,6 @@ class LearningObject(BaseModel):
     def compute_hash(cls, text: str) -> str:
         """Computes a stable hash for checking if source content changed."""
         return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+# Semantic alias for architectural clarity (Slice 10.6)
+StudyTopic = LearningObject

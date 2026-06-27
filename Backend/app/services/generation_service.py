@@ -35,6 +35,7 @@ def generate_learning_objects(
         all_requested_caps.update(ctx.capability_profile.optional)
         
         hints = "\n  -> EXAM HINTS: " + ", ".join(ctx.exam_hints) if ctx.exam_hints else ""
+        covers = "\n  -> COVERS: " + ", ".join(ctx.covers) if ctx.covers else ""
         
         concept_instructions.append(
             f"- CONCEPT: {ctx.concept.title}\n"
@@ -42,6 +43,7 @@ def generate_learning_objects(
             f"  -> RECOMMENDED FIELDS: {rec} (Fill whenever possible)\n"
             f"  -> OPTIONAL FIELDS: {opt} (Fill only if strictly supported by source)"
             f"{hints}"
+            f"{covers}"
         )
         
     concept_details = "\n".join(concept_instructions)
@@ -89,6 +91,7 @@ CRITICAL INSTRUCTIONS:
 2. DO NOT embed formulas, algorithm steps, code, memory tricks, or common mistakes inside the `explanation` field. 
 3. If the text contains a formula, put it ONLY in the `formula` field. If it has steps, put them ONLY in `algorithm_steps`.
 4. Any field NOT requested for a concept should be set to null.
+5. You must comprehensively cover all sub-topics listed under the COVERS section for each concept. Integrate them fluidly into the fields.
 
 EDUCATIONAL POLICY:
 {policy_str}

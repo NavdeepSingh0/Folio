@@ -13,6 +13,7 @@ class EducationalContext(BaseModel):
     document_metrics: Dict[str, float]
     source_slides_text: str
     full_document_text: str
+    covers: List[str] = []
 
 def build_educational_context(
     concept: ConceptOutline,
@@ -38,5 +39,6 @@ def build_educational_context(
         exam_hints=planner_input.exam_focus_hints,
         document_metrics=planner_input.document_profile.model_dump(),
         source_slides_text=source_slides_text,
-        full_document_text=extracted_doc.to_string()
+        full_document_text=extracted_doc.to_string(),
+        covers=concept.covers if hasattr(concept, 'covers') else []
     )
