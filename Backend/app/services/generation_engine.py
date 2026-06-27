@@ -6,6 +6,10 @@ from app.services.parsers import DocumentParser
 from app.services.document_intelligence import build_planner_input
 from app.services.planning_service import generate_topic_outline
 from app.services.generation_service import generate_learning_objects
+from app.services.capability_resolver import resolve_capabilities
+from app.services.educational_context_builder import build_educational_context
+from app.config.capability_profiles import BlockType
+from app.config.educational_policy import STANDARD_POLICY
 from app.services.renderer import MarkdownRenderer
 from app.models.folio import LearningObject
 from app.models.database import get_cached_learning_objects, cache_learning_object
@@ -54,12 +58,21 @@ class TwoPassBatchEngine:
         # Pass 1: Planning
         outline = generate_topic_outline(planner_input, model_name=model)
         
-        # Pass 2: Generation (Variant C)
-        topic_text_for_generation = "\n\n---\n\n".join(s.text for s in planner_input.filtered_slides)
+        # Build Educational Contexts for each concept
+        contexts = []
+        for concept in outline.concepts:
+            try:
+                btype = BlockType(concept.type)
+            except ValueError:
+                btype = BlockType.GENERAL
+            
+            cap_profile = resolve_capabilities(btype)
+            ctx = build_educational_context(concept, cap_profile, STANDARD_POLICY, planner_input, doc)
+            contexts.append(ctx)
         
+        # Pass 2: Generation (Variant C)
         parse_result = generate_learning_objects(
-            topic_text=topic_text_for_generation, 
-            outline=outline, 
+            contexts=contexts,
             document_id="temp-doc", 
             content_hash=content_hash,
             model_name=model

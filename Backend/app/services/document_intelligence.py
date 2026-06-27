@@ -6,8 +6,22 @@ from app.models.document_profile import (
     SlideType,
     ClassifiedSlide,
     DocumentProfile,
-    PlannerInput
+    PlannerInput,
+    EducationalAnalysis
 )
+
+def analyze_educational_properties(text: str) -> EducationalAnalysis:
+    text_lower = text.lower()
+    return EducationalAnalysis(
+        contains_algorithm=bool(re.search(r'\b(algorithm|step|procedure|process)\b', text_lower)),
+        contains_formula=bool(re.search(r'([=\+\-\*/\^]|equation|formula)', text_lower)),
+        contains_code=bool(re.search(r'\b(def |class |function|return|import|void |int |#include)\b', text_lower)),
+        contains_comparison=bool(re.search(r'\b(vs|versus|comparison|difference|advantage|disadvantage)\b', text_lower) or "|" in text),
+        contains_diagram=bool("[Figure: Image" in text),
+        requires_memorisation=bool(re.search(r'\b(remember|note|important|key|memorize)\b', text_lower)),
+        commonly_examined=bool(re.search(r'\b(exam|test|quiz|assess)\b', text_lower)),
+        has_common_errors=bool(re.search(r'\b(mistake|error|warning|careful|pitfall|common)\b', text_lower))
+    )
 
 def detect_image_heavy(slide: ExtractedSlide) -> bool:
     """Detects if a slide is heavily visual and lacks text."""
@@ -31,19 +45,23 @@ def classify_slide(slide: ExtractedSlide) -> tuple[SlideType, float]:
     if re.search(r'\b(references|bibliography|works cited|further reading)\b', text_lower):
         return SlideType.REFERENCE, 0.95
         
-    # 4. Learning Objective
+    # 4. Forward Reference
+    if re.search(r'\b(next lecture|coming up|next week|next session|subsequently)\b', text_lower):
+        return SlideType.FORWARD_REFERENCE, 0.95
+        
+    # 5. Learning Objective
     if re.search(r'\b(learning objectives?|goals|outcomes)\b', text_lower):
         return SlideType.LEARNING_OBJECTIVE, 0.9
         
-    # 5. Summary
+    # 6. Summary
     if re.search(r'\b(summary|conclusion|recap|in summary)\b', text_lower):
         return SlideType.SUMMARY, 0.9
         
-    # 6. Comparison
+    # 7. Comparison
     if re.search(r'\b(vs|versus|comparison|differences between)\b', text_lower) or "|" in slide.text:
         return SlideType.COMPARISON, 0.8
         
-    # 7. Example
+    # 8. Example
     if re.search(r'\b(example|for instance|suppose|consider)\b', text_lower):
         return SlideType.EXAMPLE, 0.8
         
@@ -87,19 +105,22 @@ def build_planner_input(extracted_doc: ExtractedDocument) -> PlannerInput:
         slide_type, confidence = classify_slide(s)
         image_heavy = detect_image_heavy(s)
         
+        analysis = analyze_educational_properties(s.text)
+        
         classified_slides.append(ClassifiedSlide(
             slide_number=s.slide_number,
             slide_type=slide_type,
             text=s.text,
             confidence=confidence,
-            image_heavy=image_heavy
+            image_heavy=image_heavy,
+            educational_analysis=analysis
         ))
         
     profile = compute_document_profile(classified_slides)
     hints = extract_exam_hints(classified_slides)
     
     # Filter out pure noise for the planner (but keep contexts like LEARNING_OBJECTIVE)
-    noise_types = {SlideType.ADMINISTRATIVE, SlideType.REFERENCE, SlideType.RESOURCE, SlideType.QUIZ, SlideType.SUMMARY, SlideType.IMAGE_HEAVY}
+    noise_types = {SlideType.ADMINISTRATIVE, SlideType.REFERENCE, SlideType.FORWARD_REFERENCE, SlideType.RESOURCE, SlideType.QUIZ, SlideType.SUMMARY, SlideType.IMAGE_HEAVY}
     filtered = [s for s in classified_slides if s.slide_type not in noise_types]
     
     # If the document is mostly noise, just pass everything as CONTENT as a fallback

@@ -2,6 +2,16 @@ from pydantic import BaseModel
 from typing import List, Optional
 from enum import Enum
 
+class EducationalAnalysis(BaseModel):
+    contains_algorithm: bool = False
+    contains_formula: bool = False
+    contains_code: bool = False
+    contains_comparison: bool = False
+    contains_diagram: bool = False
+    requires_memorisation: bool = False
+    commonly_examined: bool = False
+    has_common_errors: bool = False
+
 class SlideType(str, Enum):
     CONTENT = "CONTENT"
     EXAMPLE = "EXAMPLE"
@@ -10,6 +20,7 @@ class SlideType(str, Enum):
     LEARNING_OBJECTIVE = "LEARNING_OBJECTIVE"
     SUMMARY = "SUMMARY"
     REFERENCE = "REFERENCE"
+    FORWARD_REFERENCE = "FORWARD_REFERENCE"
     RESOURCE = "RESOURCE"
     ADMINISTRATIVE = "ADMINISTRATIVE"
     IMAGE_HEAVY = "IMAGE_HEAVY"
@@ -31,6 +42,7 @@ class ClassifiedSlide(BaseModel):
     text: str
     confidence: float
     image_heavy: bool
+    educational_analysis: EducationalAnalysis = EducationalAnalysis()
 
 class DocumentProfile(BaseModel):
     total_slides: int

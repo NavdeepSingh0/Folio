@@ -13,7 +13,9 @@ class ParseResult(BaseModel):
     error: Optional[str]
     raw_output: str
 
-def parse_generation_response(raw_response: str, outline, document_id: str, content_hash: str) -> ParseResult:
+from app.services.educational_context_builder import EducationalContext
+
+def parse_generation_response(raw_response: str, contexts: List[EducationalContext], document_id: str, content_hash: str) -> ParseResult:
     """
     Two-stage parser for LLM generation response.
     Stage 1: Syntax Recovery
@@ -59,7 +61,7 @@ def parse_generation_response(raw_response: str, outline, document_id: str, cont
         
     # STAGE 2: Schema Validation
     learning_objects = []
-    slides_map = {c.title.lower(): c.slides for c in outline.concepts}
+    slides_map = {c.concept.title.lower(): c.concept.slides for c in contexts}
     
     try:
         for item in data_list:
@@ -73,7 +75,7 @@ def parse_generation_response(raw_response: str, outline, document_id: str, cont
             lo = LearningObject(
                 stable_id=title.lower().replace(" ", "-"), # simplified id generation
                 document_id=document_id,
-                topic_label=outline.topic,
+                topic_label="General Topic", # Will be mapped correctly in later slices if needed
                 content_hash=content_hash,
                 title=title,
                 definition=item.get("definition", ""),

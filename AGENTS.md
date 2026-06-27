@@ -301,6 +301,26 @@ Estimated time: 3–4 hrs
 Risk level: MEDIUM
 Fallback if HIGH: If deterministic classification proves too brittle across diverse documents, loosen the rules to be highly permissive (classifying most things as CONTENT) to prevent data loss.
 
+---
+
+SLICE 10.5 — Educational Engine Finalization
+Screens involved: None
+Backend work: Freeze the educational pipeline. Refactor the Planner to output only concept metadata (title, type, source_slides). Introduce `Capability Resolver` (pure Python) to map concept types to required/recommended capabilities via `app/config/capability_profiles.py`. Introduce `Educational Policy` (`app/config/educational_policy.py`) to enforce target depths/word counts. Update the Generator prompt to ingest full document context, resolver output, policy, and hints, completely decoupling structure logic from generation. Generate v3 of the production validation and log to CONTEXT-LOG.
+Definition of done: Every pipeline stage has one responsibility. Planner only discovers concepts. Capability selection is deterministic. Educational depth is controlled by policy rather than prompts. The generator teaches rather than transcribes.
+Estimated time: 4–6 hrs
+Risk level: HIGH
+Fallback if HIGH: Revert to Slice 10c architecture if deterministic capability profiles fail to handle edge-case concepts effectively.
+
+---
+
+SLICE 10.5b — Validation & Refinement
+Screens involved: None
+Backend work: Validate pipeline behavior and identify fragmentation source without making architectural changes. 1) Add `FORWARD_REFERENCE` slide classification to Document Intelligence. 2) Update Planner prompt to clarify concept granularity and prevent over-splitting. 3) Run a diagnostic script (`diagnostic_pipeline.py`) to inspect Planner JSON, Document Intelligence classification, and final output.
+Definition of done: Forward-reference slides are properly identified and filtered. Planner prompt accurately conveys that one Learning Object = one complete teachable concept. Raw outputs have been analyzed to determine exactly where fragmentation occurred. No further architecture changes are made until diagnostics are verified.
+Estimated time: 2–3 hrs
+Risk level: LOW
+Fallback if HIGH: Revert planner prompt to previous state if new prompt causes concepts to become too merged.
+
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.
 - Auth goes in Slice 2 unless the entire product is behind auth and cannot be demoed without it.

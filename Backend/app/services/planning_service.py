@@ -23,7 +23,14 @@ def generate_topic_outline(planner_input: PlannerInput, model_name: str = "qwen3
 
     prompt = f"""
 You are an expert curriculum planner (like a university professor). Read the following topic text and extract its core concepts.
-For each concept, analyze its educational characteristics to help determine what teaching aids (formulas, diagrams, code, memory tricks) are appropriate based ON THE TEXT PROVIDED.
+You will extract distinct concepts, identify their type from a fixed list, and estimate your confidence in this extraction.
+
+CRITICAL INSTRUCTIONS ON GRANULARITY:
+- A Learning Object represents one complete teachable concept.
+- Do NOT split a concept into its implementation details, time complexity, applications, supporting mechanisms, or algorithm components. These belong inside the parent concept.
+- Only generate multiple concepts if the lecture introduces multiple independent topics that could each be studied entirely separately.
+
+Allowed Concept Types: "algorithm", "definition", "process", "comparison", "formula", "code_concept", "theory", "general"
 
 DOCUMENT PROFILE:
 Total Slides: {planner_input.document_profile.total_slides}
@@ -42,21 +49,13 @@ SCHEMA:
   "concepts": [
     {{
       "title": "Name of concept 1",
-      "slides": [1, 2],
-      "educational_analysis": {{
-        "contains_algorithm": true,
-        "contains_formula": true,
-        "contains_code": true,
-        "contains_comparison": true,
-        "contains_diagram": true,
-        "requires_memorisation": true,
-        "commonly_examined": true,
-        "has_common_errors": true
-      }}
+      "type": "algorithm",
+      "confidence": 0.95,
+      "slides": [1, 2]
     }}
   ]
 }}
-Note: "slides" MUST be an array of integers only. If a characteristic applies, set the boolean to true.
+Note: "slides" MUST be an array of integers only. "type" MUST be one of the allowed types. "confidence" is a float between 0.0 and 1.0.
 
 
 TOPIC TEXT:
@@ -83,5 +82,5 @@ TOPIC TEXT:
         return TopicOutline(
             topic="General Topic",
             exam_focus="Medium",
-            concepts=[{"title": "Core Concepts", "slides": []}]
+            concepts=[{"title": "Core Concepts", "type": "general", "confidence": 0.5, "slides": []}]
         )

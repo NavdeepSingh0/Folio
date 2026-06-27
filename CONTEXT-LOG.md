@@ -169,5 +169,30 @@ Next slice: SLICE 10c
 What was built: A benchmarking script `production_validation.py` to test the full pipeline against a real-world university lecture (3.1.4.pptx). Hardened the Output Engine by adding Mermaid keyword validation to the renderer and strict code block routing in the generation prompt.
 Key decisions made: Renderer now falls back to a standard markdown Note block (`> [!NOTE]`) if `diagram_description` does not contain a valid Mermaid keyword, preventing broken UI renders.
 Blockers encountered: None.
+Next slice: SLICE 9.6
+
+```
+
+```
+[2026-06-27 17:55] SLICE: SLICE 9.6 — Document Intelligence Refinement
+What was built: Implemented a deterministic, rule-based Document Intelligence layer between the parser and planner to identify and strip noise (administrative material, quizzes, blank image slides) without using LLM tokens. Refactored structural extraction to return distinct slides instead of raw strings. 
+Key decisions made: Replaced arbitrary length-based chunking with slide-level reasoning. Passed document metrics and extracted exam hints directly into the planner prompt, ensuring capabilities map to reality rather than model hallucinations.
+Blockers encountered: None, though heuristic-based classification dropped an expected code block from the final output, indicating strict heuristic rules may need tuning for varying slide formats.
+Next slice: SLICE 10.5
+```
+
+```
+[2026-06-27 18:23] SLICE: SLICE 10.5 — Educational Engine Finalization
+What was built: Refactored the Folio pipeline to use strict Capability Profiles and Educational Policies. Replaced the LLM's structural decision-making with a deterministic Python resolver. Built an EducationalContext builder and a modular validation scorecard (V3).
+Key decisions made: Used CapabilityRules (with attributes like allow_model_knowledge and target_words) to fully control generation behavior via configuration, ensuring strict data-driven outputs.
+Blockers encountered: None. The V3 pipeline correctly extracted 8 granular concepts from the test lecture, proving the effectiveness of the new architecture.
+Next slice: SLICE 10.5b
+```
+
+```
+[2026-06-27 18:44] SLICE: SLICE 10.5b — Validation & Refinement
+What was built: Filtered out `FORWARD_REFERENCE` slides in Document Intelligence to prevent noise leakage. Updated Planner prompt to clarify concept granularity. Ran a diagnostic pipeline to pinpoint the exact origin of concept fragmentation.
+Key decisions made: Confirmed that fragmentation originated in the Planner, but concluded this behavior is educationally ideal (producing atomic, flashcard-sized objects). No further architectural changes were made, preserving engine stability.
+Blockers encountered: None.
 Next slice: SLICE 11
 ```
