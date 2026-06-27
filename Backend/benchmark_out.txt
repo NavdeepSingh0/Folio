@@ -1,0 +1,36 @@
+LEGACY TIME: 48.29s
+
+LEGACY OUTPUT:
+## Object-Oriented Programming (OOP) in C++  
+- **Encapsulation**: Bundling data and methods into a single unit.  
+- **Inheritance**: Deriving properties from an existing class.  
+- **Polymorphism**: Different objects responding uniquely to same function call.  
+- **Abstraction**: Hiding complex implementation details.  
+- **Classes/Objects**: Fundamental building blocks.  
+- **Constructors/Destructors**: Special member functions.  
+- **Virtual Functions**: Enable runtime polymorphism.  
+- **Interfaces**: Abstract classes with purely virtual methods.  
+- **Operator Overloading**: Custom meaning for standard operators.  
+- **Multiple Inheritance**: Inheriting from multiple classes.  
+- **Friend Functions**: Access private class data.  
+- **Templates**: Support generic programming.
+
+==================================================
+
+TWO-PASS BATCH (VARIANT C) TIME: 20.78s
+
+TWO-PASS OUTPUT:
+## Encapsulation
+
+**Definition:** Encapsulation is the bundling of data and methods that operate on that data into a single unit.
+
+Encapsulation in C++ involves combining data members and member functions within a class, which restricts direct access to some components, thereby protecting the data from unintended modifications. This is achieved through access specifiers like private, protected, and public. Encapsulation also promotes data hiding and enhances the modularity and maintainability of the code.
+
+> **Example:** A class representing a BankAccount with private data members for balance and methods for deposit and withdrawal.
+
+> [!TIP]
+> **Exam Focus:** Focus on how access specifiers control data visibility and how encapsulation improves code security and maintainability.
+
+---
+
+

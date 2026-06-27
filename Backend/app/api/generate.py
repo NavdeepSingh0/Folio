@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse
 from typing import Optional
 from app.services.document_structure_service import extract_structured_text
-from app.services.generation_engine import LegacyGenerationEngine, TwoPassGenerationEngine
+from app.services.generation_engine import LegacyEngine, TwoPassBatchEngine
 from app.services.chunking_service import chunk_text
 from app.services.preprocessing_service import clean_document
 
@@ -65,9 +65,9 @@ async def generate_notes(
 
         # 5. Stream Generation
         if USE_TWO_PASS_ENGINE:
-            engine = TwoPassGenerationEngine()
+            engine = TwoPassBatchEngine()
         else:
-            engine = LegacyGenerationEngine()
+            engine = LegacyEngine()
             
         return StreamingResponse(
             engine.generate(cleaned_text, style, custom_instructions, model),

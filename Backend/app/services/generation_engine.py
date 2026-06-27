@@ -17,13 +17,17 @@ class GenerationEngine(Protocol):
     def generate(self, text: str, style: str, custom_instructions: Optional[str], model: str) -> Generator[str, None, None]:
         ...
 
-class LegacyGenerationEngine:
+class LegacyEngine:
     def generate(self, text: str, style: str, custom_instructions: Optional[str], model: str) -> Generator[str, None, None]:
         # Streams letter by letter directly from the LLM
         for token in generate_markdown_notes_stream(text, style, custom_instructions, model):
             yield token
 
-class TwoPassGenerationEngine:
+class TwoPassSequentialEngine:
+    # Not used by default anymore, kept for backwards comp / Variant A testing
+    pass
+
+class TwoPassBatchEngine:
     def generate(self, text: str, style: str, custom_instructions: Optional[str], model: str) -> Generator[str, None, None]:
         # Step 1: Topic Segmentation (previously "chunking")
         topics = chunk_text(text, chunk_size=2500, chunk_overlap=100)
@@ -47,19 +51,25 @@ class TwoPassGenerationEngine:
                 yield renderer.render(objects)
                 continue
                 
-            logger.info(f"Cache miss for topic {i}. Running Two-Pass Engine.")
+            logger.info(f"Cache miss for topic {i}. Running Two-Pass Batch Engine.")
             # Pass 1: Planning
             outline = generate_topic_outline(topic_text, model_name=model)
             
-            # Pass 2: Generation
-            # We don't have a document_id in this context yet (that's handled in the API wrapper usually, so we'll mock one for now)
-            objects = generate_learning_objects(
+            # Pass 2: Generation (Variant C)
+            parse_result = generate_learning_objects(
                 topic_text=topic_text, 
                 outline=outline, 
                 document_id="temp-doc", 
                 content_hash=content_hash,
                 model_name=model
             )
+            
+            if not parse_result.success:
+                logger.error(f"Generation failed at stage: {parse_result.stage}. Reason: {parse_result.error}")
+                yield f"\n\n> [!WARNING]\n> Failed to generate content for this section. Error: {parse_result.error}\n\n"
+                continue
+                
+            objects = parse_result.learning_objects
             
             # Cache the new objects
             for obj in objects:

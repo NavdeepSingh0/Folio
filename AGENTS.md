@@ -251,6 +251,16 @@ Estimated time: 5–7 hrs
 Risk level: MEDIUM
 Fallback if HIGH: Implement the renderer layer and Learning Object schema first. Keep the existing single-pass generation call temporarily. Two-pass generation may be completed later.
 
+---
+
+SLICE 9.5(c) — Generation Engine Validation & Benchmark Freeze
+Screens involved: None (validation & benchmarking only)
+Backend work: Rename engines (LegacyEngine, TwoPassSequentialEngine, TwoPassBatchEngine). Implement Variant C (wrap JSON array in root object). Enable Ollama JSON mode and set default temp to 0.1. Implement two-stage parser (Syntax Recovery + Schema Validation). Run extensive benchmark suites (Incremental, Thinking, Schema Complexity, Reliability, Determinism) to identify Maximum Reliable Batch Size.
+Definition of done: Engine naming standardized, Variant C implemented, JSON mode enabled, two-stage parser active, all 5 benchmark suites completed, and engine acceptance criteria evaluated against 95%+ syntax/schema validity. Engine is then permanently frozen.
+Estimated time: 4–6 hrs
+Risk level: HIGH
+Fallback if HIGH: Determine precise failure points (token limits, batch limits). Automatically constrain generation to validated limits. Re-run benchmark. If TwoPassBatchEngine still fails within limits, fallback to TwoPassSequentialEngine as default.
+
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.
 - Auth goes in Slice 2 unless the entire product is behind auth and cannot be demoed without it.

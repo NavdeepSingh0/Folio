@@ -14,16 +14,17 @@ You are an expert curriculum planner. Read the following topic text and extract 
 Return ONLY a valid JSON object matching the exact schema below. Do not output any markdown formatting, backticks, or explanation.
 
 SCHEMA:
-{
+{{
   "topic": "The overarching name of the topic",
   "exam_focus": "High, Medium, or Low",
   "concepts": [
-    {
+    {{
       "title": "Name of concept 1",
-      "slides": [] 
-    }
+      "slides": [1, 2] 
+    }}
   ]
-}
+}}
+Note: "slides" MUST be an array of integers only. Do not put strings in the slides array. If unknown, use an empty array [].
 
 TOPIC TEXT:
 {text}
