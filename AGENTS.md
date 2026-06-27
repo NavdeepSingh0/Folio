@@ -321,6 +321,36 @@ Estimated time: 2–3 hrs
 Risk level: LOW
 Fallback if HIGH: Revert planner prompt to previous state if new prompt causes concepts to become too merged.
 
+---
+
+SLICE 10.6 — Study Topic Refactor (Final Educational Architecture)
+Screens involved: None
+Backend work: Rename `LearningObject` to `StudyTopic`. Update the Planner to output unified `StudyTopics` with a new `covers` list (e.g., ["Time Complexity", "Applications"]) instead of fragmenting sub-topics into distinct objects. Update Generator to ingest this broader scope and generate a single comprehensive Study Topic containing all capabilities. Update SQLite cache logic and Markdown Renderer to reflect `StudyTopic`. Create `PIPELINE_DECISIONS.md` to document this final architectural decision. Re-run `production_validation_v3.py` (or a v4) to prove we now get 1 cohesive object.
+Definition of done: The pipeline extracts a single `StudyTopic` (e.g. "Bellman-Ford Algorithm") from the 3.1.4.pptx lecture instead of 8 fragmented concepts. The generated Markdown retains all educational depth (Time Complexity, Applications, etc.) within that single topic. No duplicate educational objects exist.
+Estimated time: 3–4 hrs
+Risk level: HIGH
+Fallback if HIGH: Keep `LearningObject` name but enforce prompt restrictions to prevent fragmentation.
+
+---
+
+SLICE 10F — Engine Freeze (Finalization)
+Screens involved: None
+Backend work: Finalize the Educational Engine for production. 1) Update `app/config/capability_profiles.py` to intelligently request formulas based on educational importance, and memory tricks as genuine analogies. 2) Extend `app/config/educational_policy.py` with qualitative expectations (e.g., "minimal_complete" code, "analogy" memory tricks). 3) Update `app/services/generation_service.py` prompt to "teach, not summarize". 4) Add strict Mermaid/Markdown validation to `app/services/renderer.py`. 5) Update and freeze `PIPELINE_DECISIONS.md`. 6) Run the final production validation suite.
+Definition of done: The generation engine produces high-quality, study-ready notes. Formulas and code examples are present when educationally valuable. Mermaid syntax is strictly validated before rendering. The engine is completely frozen and ready to support downstream Slices (Flashcards, MCQs, etc.).
+Estimated time: 2–3 hrs
+Risk level: LOW
+Fallback if HIGH: Revert any overly strict validation rules in the renderer if they strip out too much useful content.
+
+---
+
+SLICE 10Fb — Educational Signal Builder
+Screens involved: None
+Backend work: Insert a deterministic `EducationalSignalBuilder` between the Planner and Capability Resolver. 1) Create `app/config/educational_signal_profiles.py` to map `BlockType` to ideal educational enhancements. 2) Create `app/services/educational_signal_builder.py` to build `EducationalSignals` based on those profiles and exam hints. 3) Update `app/models/educational_signals.py` to reflect "would_help_learning" flags. 4) Update `CapabilityResolver` to consume these signals and dynamically inject capabilities.
+Definition of done: The generation engine produces high-quality, study-ready notes with code, formulas, and memory tricks injected when educationally beneficial, without hardcoding them in validation scripts or relying on the LLM Planner to select them. The Educational Engine is permanently frozen.
+Estimated time: 1–2 hrs
+Risk level: LOW
+Fallback if HIGH: Revert to static capability profiles without dynamic signal injection.
+
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.
 - Auth goes in Slice 2 unless the entire product is behind auth and cannot be demoed without it.

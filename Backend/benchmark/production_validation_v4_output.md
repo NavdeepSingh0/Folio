@@ -2,17 +2,20 @@
 
 **Definition:** An algorithm for finding the shortest paths from a single source vertex to all other vertices in a weighted graph, capable of handling negative edge weights and detecting negative weight cycles.
 
-The Bellman-Ford algorithm operates by relaxing all edges repeatedly. It initializes distances to all vertices as infinity except the source, which is set to zero. Through V-1 iterations, it updates distances by checking if a shorter path exists. After these iterations, it checks for negative weight cycles by attempting to relax edges once more. This algorithm is particularly useful in scenarios where negative weights are present but no negative cycles exist. It is widely applied in network routing protocols and transportation systems.
+**Formula:**
+$$
+\text{Time Complexity} = O(VE)
+$$
+
+The Bellman-Ford algorithm operates by iteratively relaxing edges to find the shortest paths. It initializes distances to all vertices as infinity except the source, which is set to zero. Through V-1 iterations, it updates distances by checking if a shorter path exists through each edge. After these iterations, it performs an additional check to detect negative weight cycles, which can make shortest paths undefined. The algorithm is particularly useful in scenarios with negative weights but no negative cycles. Its time complexity is O(VE), making it suitable for graphs with a manageable number of edges. Applications span from network routing protocols like RIP to robotics and transportation planning.
 
 **Algorithm Steps:**
-1. Initialize distance to all vertices as infinity except the source, which is set to zero.
-2. Relax all edges repeatedly for V-1 iterations, updating distances if a shorter path is found.
-3. After V-1 iterations, perform one more relaxation step to detect any negative weight cycles.
-4. If any distance is updated during this final step, a negative cycle exists.
-5. Return the shortest distances from the source to all other vertices.
-6. If a negative cycle is detected, the algorithm indicates that no shortest path exists for affected vertices.
+1. Initialize distance to all vertices as infinity except source (0).
+2. Relax all edges V-1 times, updating distances if a shorter path is found.
+3. After V-1 iterations, check all edges again to detect negative weight cycles by seeing if any edge can still be relaxed.
+4. If a negative cycle is detected, update the distance to infinity to indicate no shortest path exists.
 
-```text
+```python
 def bellman_ford(graph, source):
     distance = {node: float('inf') for node in graph}
     distance[source] = 0
@@ -20,26 +23,27 @@ def bellman_ford(graph, source):
         for u, v, w in graph:
             if distance[u] + w < distance[v]:
                 distance[v] = distance[u] + w
-    # Check for negative cycles
+    # Check for negative weight cycles
     for u, v, w in graph:
         if distance[u] + w < distance[v]:
             distance[v] = float('inf')
     return distance
 ```
 
-> **Example:** In a network of cities, the Bellman-Ford algorithm helps determine the shortest path from a starting city to all other cities, even if some roads have negative weights (like discounts or toll reductions).
+> **Example:** In a network of interconnected cities, Bellman-Ford helps determine the shortest path for data packets to travel from a source city to all other cities, even if some routes have negative weights due to discounts or special offers.
 
 > [!NOTE]
-> **Memory Trick:** Remember the algorithm's name as a mnemonic for 'Bellman' (for the algorithm's creator) and 'Ford' (for the company's name), and associate it with the process of relaxing edges repeatedly.
+> **Memory Trick:** Think of Bellman-Ford as a process that gradually relaxes edges, much like a student gradually understanding a complex concept through repeated practice.
 
 > [!WARNING]
-> **Common Mistake:** Common mistakes include forgetting to run the algorithm for V-1 iterations, not checking for negative cycles, and misinterpreting the meaning of negative edge weights.
+> **Common Mistake:** Common mistakes include forgetting to perform the final check for negative cycles or miscounting the number of iterations needed for convergence.
 
 > [!TIP]
-> **Exam Focus:** Focus on understanding the V-1 iteration process and how negative weight cycles are detected. Practice identifying the correct time complexity and recognizing the conditions for detecting negative cycles.
+> **Exam Focus:** Focus on understanding the edge relaxation process and the significance of the V-1 iterations. Be prepared to explain how negative cycles are detected and the implications of their presence.
 
 **Key Takeaways:**
-- Bellman-Ford handles negative edges and detects cycles.
-- It uses V-1 iterations to ensure all shortest paths are found.
-- Negative cycles are detected by attempting an extra relaxation step.
+- Bellman-Ford handles negative edges but not negative cycles.
+- It requires V-1 iterations to ensure all shortest paths are found.
+- Time complexity is O(,VE) which is suitable for graphs with fewer edges than vertices.
+- It is used in routing protocols and network optimization.
 

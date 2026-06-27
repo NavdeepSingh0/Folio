@@ -194,5 +194,14 @@ Next slice: SLICE 10.5b
 What was built: Filtered out `FORWARD_REFERENCE` slides in Document Intelligence to prevent noise leakage. Updated Planner prompt to clarify concept granularity. Ran a diagnostic pipeline to pinpoint the exact origin of concept fragmentation.
 Key decisions made: Confirmed that fragmentation originated in the Planner, but concluded this behavior is educationally ideal (producing atomic, flashcard-sized objects). No further architectural changes were made, preserving engine stability.
 Blockers encountered: None.
+Next slice: SLICE 10.6
+```
+
+```
+[2026-06-27 19:38] SLICE: SLICE 10.6 — Study Topic Refactor (Final Educational Architecture)
+What was built: Upgraded architecture to treat `StudyTopic` as the primary, unfragmented educational entity (wrapper for sub-concepts), preserving `LearningObject` as the internal representation.
+- **Slice 10F & 10Fb (Engine Freeze):** Finalized the generation pipeline. Introduced `EducationalSignalBuilder` to deterministically deduce learning enhancements (e.g. formulas, code blocks) based on `BlockType` rather than LLM guesswork. Enforced strict qualitative expectations in `EducationalPolicy` and extracted `PRINCIPLES_PROMPT` to ensure the generator acts as a lecturer. Verified success with V5 validation script, permanently freezing the educational engine.
+Key decisions made: Rather than a risky global codebase rename, `LearningObject` was retained as the internal Pydantic model for code stability, while `StudyTopic` was introduced as a semantic alias. `PIPELINE_DECISIONS.md` was created to cement this architectural philosophy.
+Blockers encountered: Minor schema mismatch errors during script updates, resolved by correcting type signatures.
 Next slice: SLICE 11
 ```

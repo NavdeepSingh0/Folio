@@ -6,6 +6,7 @@ from langchain_core.prompts import PromptTemplate
 from app.models.folio import LearningObject, generate_stable_id
 from app.utils.parser import parse_generation_response, ParseResult
 from app.services.educational_context_builder import EducationalContext
+from app.config.generation_principles import PRINCIPLES_PROMPT
 import uuid
 import datetime
 
@@ -77,14 +78,17 @@ def generate_learning_objects(
                 if rule.target_words: desc.append(f"Target ~{rule.target_words} words.")
                 if not rule.allow_model_knowledge: desc.append("DO NOT hallucinate; strictly rely on source.")
                 if rule.supplement: desc.append("Supplement source sparsely if needed.")
+                if getattr(rule, "quality_expectation", None): desc.append(f"Expectation: {rule.quality_expectation}")
                 if desc:
                     policy_str += f"- {cap}: {' '.join(desc)}\n"
                     
     full_document_text = contexts[0].full_document_text if contexts else ""
     
     prompt = """
-You are an expert educator. Read the FULL DOCUMENT TEXT.
+You are an expert educator and lecturer. Read the FULL DOCUMENT TEXT.
 I need you to extract and supplement educational content specifically for the following concepts. 
+
+{principles_prompt}
 
 CRITICAL INSTRUCTIONS:
 1. For each concept, I have listed Required, Recommended, and Optional capabilities. Follow them strictly.
@@ -121,7 +125,8 @@ FULL DOCUMENT TEXT:
             "full_document_text": full_document_text, 
             "concept_details": concept_details,
             "schema_str": schema_str,
-            "policy_str": policy_str
+            "policy_str": policy_str,
+            "principles_prompt": PRINCIPLES_PROMPT
         })
         
         # Two-stage parse

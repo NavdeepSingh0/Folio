@@ -17,9 +17,9 @@ def render_explanation(obj: LearningObject) -> str:
     return f"{obj.explanation}\n\n"
 
 def render_formula(obj: LearningObject) -> str:
-    if not obj.formula:
+    if not obj.formula or not obj.formula.strip():
         return ""
-    return f"**Formula:**\n```math\n{obj.formula}\n```\n\n"
+    return f"**Formula:**\n$$\n{obj.formula.strip()}\n$$\n\n"
 
 def render_algorithm_steps(obj: LearningObject) -> str:
     if not obj.algorithm_steps:
@@ -30,8 +30,18 @@ def render_algorithm_steps(obj: LearningObject) -> str:
 def render_code_example(obj: LearningObject) -> str:
     if not obj.code_example:
         return ""
-    # Assuming code could be Java/C++ etc. Using text as default
-    return f"```text\n{obj.code_example}\n```\n\n"
+    code_text = obj.code_example.strip()
+    lang = "text"
+    if "public class" in code_text or "public static void" in code_text:
+        lang = "java"
+    elif "#include" in code_text or "cout <<" in code_text or "std::" in code_text:
+        lang = "cpp"
+    elif "def " in code_text or "import sys" in code_text:
+        lang = "python"
+    elif "SELECT " in code_text.upper() and "FROM " in code_text.upper():
+        lang = "sql"
+        
+    return f"```{lang}\n{code_text}\n```\n\n"
 
 def render_comparison_table(obj: LearningObject) -> str:
     if not obj.comparison_table or len(obj.comparison_table) == 0:

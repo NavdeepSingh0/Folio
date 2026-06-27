@@ -21,3 +21,16 @@ This document tracks the permanent architectural decisions and production metric
   - Algorithm Steps
   - Note/Tip/Warning Callouts
   - Textual Diagram fallback (when Mermaid fails validation)
+
+## Primary Educational Entity: Study Topic
+- **Date**: 2026-06-27 (Slice 10.6 & 10F)
+- **Decision**: The engine considers `StudyTopic` the primary, unfragmented educational entity, wrapping sub-concepts (via `covers` array) instead of generating fragmented `LearningObject`s.
+- **Reason**: Students study complete topics (e.g. "Bellman-Ford Algorithm"), not fragmented parts (e.g. studying "Time Complexity" completely disjoint from the algorithm). 
+- **Implementation**: `LearningObject` remains the internal Pydantic implementation model to preserve code compatibility, while `StudyTopic` serves as the semantic alias. The Planner now actively outputs unified topics spanning multiple slides, and the Generator processes them holistically into comprehensive Markdown notes.
+
+## Known Quality Limitations (Engine Freeze)
+- **Image Ignorance**: The engine cannot currently understand images embedded in slides.
+- **Diagram OCR**: The engine cannot OCR diagrams; it relies on text extraction.
+- **Comparison Tables**: Generation of comparison tables heavily requires textual source material.
+- **Formula Extraction**: Depends entirely on textual representation in the parsed slides.
+- **Educational Supplementation**: Relies on the LLM's internal knowledge when source material is sparse.

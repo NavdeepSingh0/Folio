@@ -6,7 +6,7 @@
 - Pages: 19
 
 ## Timing Metrics
-- Total Generation Time: 75.80 seconds
+- Total Generation Time: 78.61 seconds
 
 ## StudyTopic Metrics
 - Total Topics Generated: 1
@@ -18,7 +18,7 @@
 - Examples: 1
 - Code Examples: 1
 - Algorithm Steps: 1
-- Formulae: 0
+- Formulae: 1
 - Comparison Tables: 0
 - Memory Tricks: 1
 - Common Mistakes: 1
@@ -27,7 +27,7 @@
 - Diagrams: 0
 
 ## Renderer Statistics
-- Markdown Size: 2884 characters
+- Markdown Size: 2982 characters
 
 
 ## Educational Completeness Scorecard
