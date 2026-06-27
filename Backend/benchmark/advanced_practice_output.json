@@ -1,0 +1,210 @@
+{
+  "topic": "Bellman Ford Algorithm",
+  "advanced_practice": {
+    "conceptual_questions": [
+      {
+        "question": "Why is the Bellman-Ford algorithm particularly suited for detecting negative weight cycles, unlike Dijkstra's algorithm?",
+        "answer": "Bellman-Ford can detect negative weight cycles because it performs V-1 relaxations and then an additional iteration to check for any possible further relaxation, which would indicate a cycle. Dijkstra's algorithm relies on non-negative edge weights and cannot handle negative edges, making it unsuitable for cycle detection.",
+        "difficulty": "MEDIUM",
+        "tags": [
+          "shortest path",
+          "graph theory"
+        ]
+      },
+      {
+        "question": "Why does the Bellman-Ford algorithm require V-1 iterations instead of V iterations to find the shortest paths?",
+        "answer": "The V-1 iterations are sufficient because, in a graph with V vertices, the longest shortest path can have at most V-1 edges. After V-1 iterations, any further relaxation would indicate a negative weight cycle, which is not part of a shortest path tree.",
+        "difficulty": "MEDIUM",
+        "tags": [
+          "shortest path",
+          "time complexity"
+        ]
+      },
+      {
+        "question": "Why does the Bellman-Ford algorithm set the distance to infinity for nodes that can be relaxed in the V-th iteration?",
+        "answer": "Setting the distance to infinity in the V-th iteration signifies that the node is part of a negative weight cycle. This is because if a node can still be relaxed after V-1 iterations, it means there's a cycle that can be traversed indefinitely to decrease the path cost, making the shortest path undefined.",
+        "difficulty": "HARD",
+        "tags": [
+          "negative cycles",
+          "graph theory"
+        ]
+      }
+    ],
+    "comparison_questions": [
+      {
+        "question": "Under what circumstances should the Bellman-Ford algorithm be preferred over Dijkstra's algorithm?",
+        "answer": "Bellman-Ford should be preferred over Dijkstra's algorithm when the graph contains negative edge weights but no negative weight cycles. Dijkstra's algorithm cannot handle negative edges, while Bellman-Ford can, making it suitable for such scenarios.",
+        "difficulty": "HARD",
+        "tags": [
+          "shortest path",
+          "time complexity"
+        ]
+      },
+      {
+        "question": "Under what circumstances should the Bellman-Ford algorithm be preferred over the Floyd-Warshall algorithm?",
+        "answer": "Bellman-Ford should be preferred over Floyd-Warshall when the graph has a single source node and the number of edges is significantly larger than the number of vertices. Floyd-Warshall has a time complexity of O(V^3), which is less efficient for graphs with a large number of edges compared to Bellman-Ford's O(VE).",
+        "difficulty": "HARD",
+        "tags": [
+          "shortest path",
+          "time complexity"
+        ]
+      },
+      {
+        "question": "Under what circumstances should the Bellman-Ford algorithm be preferred over the SPFA algorithm?",
+        "answer": "Bellman-Ford should be preferred over SPFA when the graph has a predictable structure and the number of edges is not excessively large. SPFA has an average-case better performance but can have worst-case time complexity similar to Bellman-Ford. For deterministic performance and simplicity, Bellman-Ford is often preferred in academic settings.",
+        "difficulty": "HARD",
+        "tags": [
+          "shortest path",
+          "time complexity"
+        ]
+      }
+    ],
+    "scenario_questions": [
+      {
+        "scenario": "A network routing system experiences a situation where a negative weight cycle exists in the graph of network paths. How would you modify the Bellman-Ford algorithm to handle this scenario and ensure the system remains stable?",
+        "expected_answer": "To handle a negative weight cycle, the Bellman-Ford algorithm should be modified to detect the cycle during the V-th iteration. If a node's distance can still be relaxed, it indicates the presence of a cycle. The system should then mark affected nodes as unreachable or set their distances to infinity to prevent infinite loops and ensure stability.",
+        "difficulty": "MEDIUM",
+        "tags": [
+          "negative cycles",
+          "graph theory"
+        ]
+      },
+      {
+        "scenario": "A transportation network uses the Bellman-Ford algorithm to calculate the shortest travel times between cities. However, the system starts returning incorrect distances. What could be the cause, and how would you diagnose and fix the issue?",
+        "expected_answer": "The issue could be due to a negative weight cycle affecting the distance calculations. To diagnose, run the V-th iteration of Bellman-Ford to check for any possible relaxations. If any nodes can still be relaxed, it indicates a cycle. The fix involves either removing the cycle from the graph or adjusting the algorithm to handle cycles appropriately, such as setting affected distances to infinity.",
+        "difficulty": "MEDIUM",
+        "tags": [
+          "negative cycles",
+          "debugging"
+        ]
+      },
+      {
+        "scenario": "A system implementing the Bellman-Ford algorithm encounters a situation where the number of edges is significantly larger than the number of vertices. How would you optimize the algorithm's performance in this scenario?",
+        "expected_answer": "In a scenario with a large number of edges, the Bellman-Ford algorithm's O(VE) time complexity may be inefficient. To optimize, consider using the SPFA (Shortest Path Faster Algorithm) which has an average-case better performance. Alternatively, if the graph structure is known, a more optimized approach like Dijkstra's algorithm with a priority queue can be used if all edge weights are non-negative.",
+        "difficulty": "MEDIUM",
+        "tags": [
+          "time complexity",
+          "optimization"
+        ]
+      }
+    ],
+    "viva_questions": [
+      {
+        "question": "Explain the Bellman-Ford algorithm to an interviewer in less than 30 seconds.",
+        "model_answer": "The Bellman-Ford algorithm finds the shortest paths from a single source in a weighted graph, handling negative edges and detecting negative cycles. It works by relaxing all edges V-1 times and then checking for further relaxation to identify cycles.",
+        "difficulty": "HARD",
+        "tags": [
+          "shortest path",
+          "algorithm"
+        ]
+      },
+      {
+        "question": "Explain how Bellman-Ford detects negative weight cycles in less than 30 seconds.",
+        "model_answer": "Bellman-Ford detects negative weight cycles by performing an additional relaxation step after V-1 iterations. If any edge can still be relaxed, it indicates a cycle, as the shortest path would be undefined due to the possibility of infinite traversal.",
+        "difficulty": "HARD",
+        "tags": [
+          "negative cycles",
+          "graph theory"
+        ]
+      },
+      {
+        "question": "Explain the time complexity of Bellman-Ford and why it's O(VE) in less than 30 seconds.",
+        "model_answer": "Bellman-Ford has a time complexity of O(VE) because it iterates through all edges V-1 times, where V is the number of vertices. Each iteration processes every edge, leading to a total of V*E operations.",
+        "difficulty": "HARD",
+        "tags": [
+          "time complexity",
+          "algorithm"
+        ]
+      }
+    ],
+    "coding_challenges": [
+      {
+        "prompt": "Implement the Bellman-Ford algorithm to detect negative weight cycles and return the shortest distances from a given source node. Analyze the time complexity of your implementation.",
+        "expected_topics": [
+          "shortest path",
+          "time complexity"
+        ],
+        "difficulty": "HARD",
+        "tags": [
+          "algorithm",
+          "time complexity"
+        ]
+      },
+      {
+        "prompt": "Modify the Bellman-Ford algorithm to handle a graph with multiple negative weight cycles and ensure that nodes affected by these cycles are marked as unreachable. Provide an analysis of how your modification affects the algorithm's time complexity.",
+        "expected_topics": [
+          "negative cycles",
+          "graph theory"
+        ],
+        "difficulty": "HARD",
+        "tags": [
+          "algorithm",
+          "graph theory"
+        ]
+      },
+      {
+        "prompt": "Implement a variation of the Bellman-Ford algorithm that uses a queue to optimize the relaxation process, similar to the SPFA algorithm. Analyze the time complexity of your implementation and compare it with the standard Bellman-Ford approach.",
+        "expected_topics": [
+          "shortest path",
+          "optimization"
+        ],
+        "difficulty": "HARD",
+        "tags": [
+          "algorithm",
+          "optimization"
+        ]
+      }
+    ],
+    "exam_predictions": [
+      {
+        "marks": 10,
+        "question": "Describe the Bellman-Ford algorithm, its time complexity, and how it detects negative weight cycles. Provide an example of a scenario where this algorithm would be more appropriate than Dijkstra's algorithm. (10 marks)",
+        "marking_scheme": [
+          "1 mark for defining Bellman-Ford",
+          "1 mark for stating time complexity",
+          "2 marks for explaining cycle detection",
+          "2 marks for describing the algorithm's steps",
+          "2 marks for providing a suitable example",
+          "2 marks for comparing with Dijkstra's algorithm"
+        ],
+        "difficulty": "HARD",
+        "tags": [
+          "shortest path",
+          "time complexity"
+        ]
+      },
+      {
+        "marks": 10,
+        "question": "Explain the steps of the Bellman-Ford algorithm and how it handles negative weight edges. Discuss the implications of a negative weight cycle on the algorithm's output and how it can be detected. (10 marks)",
+        "marking_scheme": [
+          "2 marks for explaining the initialization step",
+          "2 marks for describing the relaxation process",
+          "2 marks for explaining the V-1 iterations",
+          "2 marks for discussing negative edge handling",
+          "2 marks for explaining cycle detection"
+        ],
+        "difficulty": "HARD",
+        "tags": [
+          "shortest path",
+          "graph theory"
+        ]
+      },
+      {
+        "marks": 10,
+        "question": "Compare the Bellman-Ford algorithm with Dijkstra's algorithm in terms of their time complexity and ability to handle negative edge weights. Provide a scenario where each algorithm would be more appropriate. (10 marks)",
+        "marking_scheme": [
+          "2 marks for stating time complexity of Bellman-Ford",
+          "2 marks for stating time complexity of Dijkstra's algorithm",
+          "2 marks for explaining negative edge handling in Bellman-Ford",
+          "2 marks for explaining non-negative requirement in Dijkstra's algorithm",
+          "2 marks for providing a suitable scenario for each algorithm"
+        ],
+        "difficulty": "HARD",
+        "tags": [
+          "shortest path",
+          "time complexity"
+        ]
+      }
+    ]
+  }
+}

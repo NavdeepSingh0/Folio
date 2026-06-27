@@ -351,6 +351,26 @@ Estimated time: 1–2 hrs
 Risk level: LOW
 Fallback if HIGH: Revert to static capability profiles without dynamic signal injection.
 
+---
+
+SLICE 11 — Revision Engine (Deterministic)
+Screens involved: None
+Backend work: Build a deterministic pipeline to transform a `StudyTopic` into `Flashcard`, `MCQ`, `RecallPrompt`, and `CheatSheet` resources without using the LLM. 1) Create models in `app/models/revision.py`. 2) Refactor renderers into `app/renderers/`. 3) Implement pure-function renderers for each revision type. 4) Create `RevisionEngine` orchestrator in `app/services/revision_engine.py`.
+Definition of done: A single generated Study Topic seamlessly and deterministically produces flashcards, MCQs, active recall prompts, and a cheat sheet based on its existing fields (e.g. Definition -> Flashcard Front, Explanation -> Back).
+Estimated time: 3–4 hrs
+Risk level: LOW
+Fallback if HIGH: Start with only Flashcards and Cheat Sheets before tackling deterministic MCQs.
+
+---
+
+SLICE 11.5 — Revision Expansion Engine
+Screens involved: None
+Backend work: Build `app/services/revision_expansion_service.py` to generate entirely new educational artifacts (Conceptual Questions, Comparison Questions, Scenario Questions, Viva Questions, Coding Challenges, Exam Predictions) from a single `StudyTopic`. Create `app/models/revision_expansion.py` for Pydantic schemas. Create `app/prompts/revision_expansion_prompt.py`. Update validation suite.
+Definition of done: Every `StudyTopic` can generate six new higher-order revision experiences in a single LLM call. Questions require reasoning rather than simple recall. No artifacts duplicate deterministic resources. The deterministic engine remains unaffected.
+Estimated time: 3–4 hrs
+Risk level: LOW
+Fallback if HIGH: Start with only Conceptual and Scenario questions before adding the rest.
+
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.
 - Auth goes in Slice 2 unless the entire product is behind auth and cannot be demoed without it.

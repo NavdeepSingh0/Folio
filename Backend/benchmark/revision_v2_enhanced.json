@@ -1,0 +1,100 @@
+{
+  "topic": "Bellman Ford Algorithm",
+  "flashcards": [
+    {
+      "id": "b2d66cdb-8b03-40b9-adba-5b8ad000596f",
+      "topic_id": "fe22c7d8-ee7a-4de2-b160-daf253eafd27",
+      "front": "What is Bellman Ford Algorithm?",
+      "back": "An algorithm for finding the shortest paths from a single source vertex to all other vertices in a weighted graph, capable of handling negative edge weights and detecting negative weight cycles.",
+      "difficulty": "medium",
+      "tags": [
+        "definition"
+      ]
+    },
+    {
+      "id": "dbdcb8d3-c991-4a16-8582-85dacd5f0798",
+      "topic_id": "fe22c7d8-ee7a-4de2-b160-daf253eafd27",
+      "front": "What are the steps of Bellman Ford Algorithm?",
+      "back": "1. Initialize distance to source as 0 and all others as infinity\n2. Relax all edges V-1 times\n3. Check for negative weight cycles by attempting one more relaxation\n4. If relaxation is possible, a negative cycle exists",
+      "difficulty": "medium",
+      "tags": [
+        "algorithm"
+      ]
+    },
+    {
+      "id": "18dad36d-ac3f-4480-92f0-c0305ca9c1a0",
+      "topic_id": "fe22c7d8-ee7a-4de2-b160-daf253eafd27",
+      "front": "How can you remember Bellman Ford Algorithm?",
+      "back": "Think of Bellman-Ford as a 'Bell' that rings (V-1) times, each time 'Ford'ing (relaxing) the edges to find the shortest path.",
+      "difficulty": "medium",
+      "tags": [
+        "memory"
+      ]
+    },
+    {
+      "id": "bb1eed31-ee0b-4250-abf2-8f43edd4c4ae",
+      "topic_id": "fe22c7d8-ee7a-4de2-b160-daf253eafd27",
+      "front": "What is a common mistake regarding Bellman Ford Algorithm?",
+      "back": "Common mistakes include forgetting to run the relaxation step V-1 times, or not checking for negative cycles after the initial iterations.",
+      "difficulty": "medium",
+      "tags": [
+        "mistakes"
+      ]
+    },
+    {
+      "id": "20e0d639-253a-443e-b777-cc03a24328de",
+      "topic_id": "fe22c7d8-ee7a-4de2-b160-daf253eafd27",
+      "front": "What is an important exam tip for Bellman Ford Algorithm?",
+      "back": "Focus on understanding the relaxation process and how negative cycles are detected. Practice problems involving graphs with negative weights and cycle detection.",
+      "difficulty": "medium",
+      "tags": [
+        "exam_tip"
+      ]
+    }
+  ],
+  "mcqs": [
+    {
+      "id": "986144b2-4fb9-4358-a913-e8dde2c77f1a",
+      "topic_id": "fe22c7d8-ee7a-4de2-b160-daf253eafd27",
+      "question": "Which of the following best defines Bellman Ford Algorithm?",
+      "options": [
+        "A common misconception.",
+        "Common mistakes include forgetting to run the relaxation step V-1 times, or not checking for negative cycles after the initial iterations.",
+        "An algorithm for finding the shortest paths from a single source vertex to all other vertices in a weighted graph, capable of handling negative edge weights and detecting negative weight cycles.",
+        "Something related to col1"
+      ],
+      "correct_answer": 2,
+      "explanation": "The correct definition is: An algorithm for finding the shortest paths from a single source vertex to all other vertices in a weighted graph, capable of handling negative edge weights and detecting negative weight cycles."
+    }
+  ],
+  "recall_prompts": [
+    {
+      "id": "006391a3-5612-4859-a6c9-719aeeb2512f",
+      "topic_id": "fe22c7d8-ee7a-4de2-b160-daf253eafd27",
+      "prompt": "Without looking, write down the key points (Definition, Steps, Takeaways) for Bellman Ford Algorithm.",
+      "expected_points": [
+        "Definition: An algorithm for finding the shortest paths from a single source vertex to all other vertices in a weighted graph, capable of handling negative edge weights and detecting negative weight cycles.",
+        "Steps:\n- Initialize distance to source as 0 and all others as infinity\n- Relax all edges V-1 times\n- Check for negative weight cycles by attempting one more relaxation\n- If relaxation is possible, a negative cycle exists",
+        "Takeaways:\n- Bellman-Ford handles negative edges and detects cycles\n- Time complexity is O(VE)\n- Useful for network routing and optimization"
+      ]
+    }
+  ],
+  "cheatsheet": {
+    "topic_id": "fe22c7d8-ee7a-4de2-b160-daf253eafd27",
+    "bullets": [
+      "Definition: An algorithm for finding the shortest paths from a single source vertex to all other vertices in a weighted graph, capable of handling negative edge weights and detecting negative weight cycles."
+    ],
+    "formulas": [
+      "\\text{Time Complexity} = O(VE)\\"
+    ],
+    "memory_tricks": [
+      "Think of Bellman-Ford as a 'Bell' that rings (V-1) times, each time 'Ford'ing (relaxing) the edges to find the shortest path."
+    ],
+    "exam_focus": [
+      "Focus on understanding the relaxation process and how negative cycles are detected. Practice problems involving graphs with negative weights and cycle detection.",
+      "Bellman-Ford handles negative edges and detects cycles",
+      "Time complexity is O(VE)",
+      "Useful for network routing and optimization"
+    ]
+  }
+}
