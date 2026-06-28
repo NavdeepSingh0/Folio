@@ -10,6 +10,9 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
+    # Enable WAL mode to prevent 'database is locked' errors under concurrent load
+    cursor.execute('PRAGMA journal_mode=WAL;')
+    
     # Collections
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS collections (
@@ -123,6 +126,30 @@ def cache_learning_object(content_hash: str, lo_json: str):
         INSERT INTO learning_object_cache (id, content_hash, renderer_version, learning_object_json, created_at)
         VALUES (?, ?, ?, ?, ?)
     ''', (obj_id, content_hash, 1, lo_json, created_at))
+    conn.commit()
+    conn.close()
+
+def update_cached_learning_object(content_hash: str, lo_json: str, title: str):
+    """Updates a specific cached LearningObject by parsing JSON to match the title.
+       Since cache has multiple LOs per hash, we find the one matching the title."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    cursor = conn.cursor()
+    
+    # Fetch all for this hash
+    cursor.execute('SELECT id, learning_object_json FROM learning_object_cache WHERE content_hash = ?', (content_hash,))
+    results = cursor.fetchall()
+    
+    import json
+    for row in results:
+        obj_id, existing_json = row
+        try:
+            data = json.loads(existing_json)
+            if data.get("title") == title:
+                cursor.execute('UPDATE learning_object_cache SET learning_object_json = ? WHERE id = ?', (lo_json, obj_id))
+                break
+        except:
+            continue
+            
     conn.commit()
     conn.close()
 

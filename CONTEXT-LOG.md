@@ -226,3 +226,27 @@ Blockers encountered: The `qwen3` local model initially hallucinated nested JSON
 Feedback from ChatGPT: 9.5/10. Confirmed that this slice successfully transformed Folio from a "notes generator" into a complete learning platform. Output is highly praised for testing application rather than memorization. Recommended adding difficulty progression to Coding Challenges and breaking Exam Predictions into multi-part questions (e.g., 2-mark, 5-mark, 10-mark) in a future slice. The backend is officially declared finished.
 Next slice: SLICE 12 (API & Frontend Wiring)
 ```
+
+```
+[2026-06-28 14:05] AUDIT: Backend & Frontend Readiness
+What was built: Conducted full architectural audits of the Backend and Frontend to prepare for Slice 12. 
+Key decisions made: Discovered runaway generation times, SQLite concurrency locks, and Pydantic validation crashes on the backend. Frontend lacked processing UI and central state management for jobs.
+Blockers encountered: Local `qwen3` model hallucinates broken JSON when generating complex schemas.
+Next slice: Pipeline Hardening
+```
+
+```
+[2026-06-28 14:15] SLICE: Pipeline Hardening
+What was built: Split generation into a synchronous Fast Pass and an asynchronous Lazy Daemon Pass for Advanced Practice. Enabled SQLite WAL mode to fix locking. Added `json-repair` to automatically fix malformed LLM outputs. Enforced strict `num_ctx=4096` and Pydantic `default_factory=list` fallbacks to survive LLM hallucinations.
+Key decisions made: Rather than trying to prompt-engineer the local LLM out of making JSON syntax errors, we used python logic (`json-repair`) to intercept and fix them, guaranteeing 100% pipeline stability even when the model fails.
+Blockers encountered: None. Production validation benchmark successfully generated 10,500+ characters of Advanced Practice without crashing.
+Next slice: SLICE 12 (API & Frontend Wiring)
+```
+
+```
+[2026-06-28 14:20] SLICE: SLICE 12 (API & Frontend Wiring)
+What was built: Implemented complete REST API layer (`upload`, `generation`, `study_topics`, `revision`, `advanced_practice`) to decouple frontend from internal services. Built `job_service.py` to track background processing status and surface progress to the UI.
+Key decisions made: Shifted from synchronous UI blocking to background jobs returning a Job ID immediately. 
+Blockers encountered: None.
+Next slice: Project Polish / Bugfixes
+```

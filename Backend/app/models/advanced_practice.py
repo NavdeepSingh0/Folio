@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, Field
+from typing import List, Optional
 
 class ConceptualQuestion(BaseModel):
     question: str
@@ -39,9 +39,9 @@ class ExamPrediction(BaseModel):
     tags: List[str]
 
 class AdvancedPractice(BaseModel):
-    conceptual_questions: List[ConceptualQuestion]
-    comparison_questions: List[ComparisonQuestion]
-    scenario_questions: List[ScenarioQuestion]
-    viva_questions: List[VivaQuestion]
-    coding_challenges: List[CodingChallenge]
-    exam_predictions: List[ExamPrediction]
+    conceptual_questions: List[ConceptualQuestion] = Field(default_factory=list)
+    comparison_questions: List[ComparisonQuestion] = Field(default_factory=list)
+    scenario_questions: List[ScenarioQuestion] = Field(default_factory=list)
+    viva_questions: List[VivaQuestion] = Field(default_factory=list)
+    coding_challenges: List[CodingChallenge] = Field(default_factory=list)
+    exam_predictions: List[ExamPrediction] = Field(default_factory=list)

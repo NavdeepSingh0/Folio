@@ -6,9 +6,10 @@ This document tracks the permanent architectural decisions and production metric
 - **Engine Variant**: `TwoPassBatchEngine`
 - **Pass 1 (Planning)**: `qwen3` analyzes text and produces a `ConceptOutline` with an `EducationalAnalysis` object mapping the true/false booleans for 11 specific educational traits.
 - **Mapping**: Deterministic Python function maps booleans directly to capability requirements, preventing LLM hallucination of field names.
-- **Pass 2 (Generation)**: `qwen3` receives a dynamic JSON schema generated from the requested capabilities. The parser accepts all 11 optional capabilities.
-- **Caching**: Dynamic SQLite Cache (`learning_object_cache`) keyed by `content_hash`.
-- **Renderer**: Pure Python functions outputting standard Markdown + Mermaid + GitHub Alerts.
+- **Pass 2 (Generation / Fast Pass)**: `qwen3` receives a dynamic JSON schema generated from the requested capabilities. The parser uses `json-repair` to fix syntax errors automatically before Pydantic validation.
+- **Pass 3 (Advanced Practice / Lazy Pass)**: `qwen3` generates complex practice objects asynchronously via a daemon thread to prevent HTTP timeouts.
+- **Caching & Persistence**: SQLite configured with `journal_mode=WAL` to allow simultaneous reads/writes during background generation.
+- **Renderer**: Pure Python functions outputting standard Markdown + Mermaid + GitHub Alerts. (Latex `$` tags stripped prior to render to prevent KaTeX crashes).
 
 ## Production Metrics (Slice 10c Validation)
 - **Model Used**: `qwen3`
@@ -16,11 +17,13 @@ This document tracks the permanent architectural decisions and production metric
 - **Total Pipeline Execution Time**: ~159.11 seconds
 - **Production Throughput**: ~0.01 LearningObjects per second (Heavily I/O and generation bound)
 - **Capabilities Verified**:
-  - Formulas (LaTeX format)
+  - Formulas (LaTeX format, syntax-escaped)
   - Code Examples
   - Algorithm Steps
   - Note/Tip/Warning Callouts
   - Textual Diagram fallback (when Mermaid fails validation)
+  - Complex Comparison Tables (Using structured `headers`/`rows` dict mapping)
+  - Resilient Advanced Practice (Arrays default to empty if LLM hallucination occurs)
 
 ## Primary Educational Entity: Study Topic
 - **Date**: 2026-06-27 (Slice 10.6 & 10F)

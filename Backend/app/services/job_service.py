@@ -7,7 +7,15 @@ from app.models.job import Job
 # In a distributed production system, this would be Redis.
 _jobs: Dict[str, Job] = {}
 
+def _cleanup_old_jobs():
+    # Remove jobs older than 24 hours (86400 seconds)
+    now = time.time()
+    stale_ids = [jid for jid, j in _jobs.items() if now - getattr(j, 'started_at', now) > 86400]
+    for jid in stale_ids:
+        del _jobs[jid]
+
 def create_job() -> Job:
+    _cleanup_old_jobs()
     job_id = str(uuid.uuid4())
     job = Job(
         id=job_id,

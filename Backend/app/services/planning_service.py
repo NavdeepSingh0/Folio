@@ -4,6 +4,7 @@ from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 from app.models.folio import TopicOutline
 from app.models.document_profile import PlannerInput
+import json_repair
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ TOPIC TEXT:
 {text_content}
 """
     try:
-        llm = OllamaLLM(model=model_name, format="json", keep_alive=-1) # Using format="json" if supported by the model
+        llm = OllamaLLM(model=model_name, format="json", temperature=0.1, num_ctx=4096, keep_alive=-1) # Using format="json" if supported by the model
         
         response = llm.invoke(prompt)
         
@@ -75,7 +76,7 @@ TOPIC TEXT:
         if clean_json.endswith("```"):
             clean_json = clean_json[:-3]
             
-        data = json.loads(clean_json.strip())
+        data = json_repair.loads(clean_json.strip())
         return TopicOutline(**data)
         
     except Exception as e:

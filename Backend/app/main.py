@@ -4,7 +4,6 @@ import uvicorn
 from app.api.upload import router as upload_router
 from app.api.generation import router as generation_router
 from app.api.status import router as status_router
-from app.api.project import router as project_router
 from app.api.projects import router as projects_router
 from app.api.settings import router as settings_router
 from app.api.study import router as study_router
@@ -29,7 +28,6 @@ app.add_middleware(
 app.include_router(upload_router, prefix="/api", tags=["Upload"])
 app.include_router(generation_router, prefix="/api", tags=["Generation"])
 app.include_router(status_router, prefix="/api", tags=["Status"])
-app.include_router(project_router, prefix="/api", tags=["Project"])
 app.include_router(projects_router, prefix="/api", tags=["Projects"])
 app.include_router(settings_router, prefix="/api", tags=["Settings"])
 app.include_router(study_router, prefix="/api", tags=["Study"])

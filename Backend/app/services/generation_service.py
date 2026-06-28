@@ -21,7 +21,7 @@ def generate_learning_objects(
     """Pass 2 (Variant C): Single LLM call wrapped in root object."""
     
     # Enforce temp 0.1 and json mode for reliability
-    llm = OllamaLLM(model=model_name, format="json", temperature=0.1, keep_alive=-1)
+    llm = OllamaLLM(model=model_name, format="json", temperature=0.1, num_ctx=4096, keep_alive=-1)
     
     # Construct concept details and collect unique capabilities
     concept_instructions = []
@@ -59,7 +59,7 @@ def generate_learning_objects(
     if "code_example" in all_requested_caps: schema_fields.append('"code_example": "Extract implementation snippets, Java/C++/Python code, and syntax demonstrations here"')
     if "algorithm_steps" in all_requested_caps: schema_fields.append('"algorithm_steps": ["extract step 1", "extract step 2"]')
     if "formula" in all_requested_caps: schema_fields.append('"formula": "Extract the LaTeX formula (or null)"')
-    if "comparison_table" in all_requested_caps: schema_fields.append('"comparison_table": [{"col1": "val", "col2": "val"}] (or null)')
+    if "comparison_table" in all_requested_caps: schema_fields.append('"comparison_table": {"headers": ["Header1", "Header2"], "rows": [["val1", "val2"]]} (or null)')
     if "diagram_description" in all_requested_caps: schema_fields.append('"diagram_description": "Extract the diagram syntax (or null)"')
     if "memory_trick" in all_requested_caps: schema_fields.append('"memory_trick": "Extract the memory trick (or null)"')
     if "common_mistakes" in all_requested_caps: schema_fields.append('"common_mistakes": "A single string explaining common mistakes (or null)"')

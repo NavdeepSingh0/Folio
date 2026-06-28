@@ -19,7 +19,8 @@ def render_explanation(obj: LearningObject) -> str:
 def render_formula(obj: LearningObject) -> str:
     if not obj.formula or not obj.formula.strip():
         return ""
-    return f"**Formula:**\n$$\n{obj.formula.strip()}\n$$\n\n"
+    clean_formula = obj.formula.replace("$", "").strip()
+    return f"**Formula:**\n$$\n{clean_formula}\n$$\n\n"
 
 def render_algorithm_steps(obj: LearningObject) -> str:
     if not obj.algorithm_steps:
@@ -44,21 +45,19 @@ def render_code_example(obj: LearningObject) -> str:
     return f"```{lang}\n{code_text}\n```\n\n"
 
 def render_comparison_table(obj: LearningObject) -> str:
-    if not obj.comparison_table or len(obj.comparison_table) == 0:
+    if not obj.comparison_table or not obj.comparison_table.headers:
         return ""
     
-    # Extract headers from the first dictionary
-    headers = list(obj.comparison_table[0].keys())
-    if not headers:
-        return ""
-        
-    markdown = f"| {' | '.join(headers)} |\n"
-    markdown += f"|{'|'.join(['---' for _ in headers])}|\n"
+    headers = obj.comparison_table.headers
+    header_row = "| " + " | ".join(headers) + " |"
+    separator = "|" + "|".join(["---"] * len(headers)) + "|"
     
-    for row in obj.comparison_table:
-        markdown += f"| {' | '.join([str(row.get(h, '')) for h in headers])} |\n"
+    rows = []
+    for row in obj.comparison_table.rows:
+        rows.append("| " + " | ".join(row) + " |")
         
-    return markdown + "\n"
+    table_str = "\n".join([header_row, separator] + rows)
+    return f"**Comparison:**\n{table_str}\n\n"
 
 def render_mermaid_diagram(obj: LearningObject) -> str:
     if not obj.diagram_description:
@@ -106,47 +105,41 @@ def render_advanced_practice(obj: LearningObject) -> str:
     sections = []
     
     # Conceptual Questions
-    c_qs = ap.get("conceptual_questions", [])
-    if c_qs:
+    if ap.conceptual_questions:
         sections.append("### Conceptual Questions")
-        for i, q in enumerate(c_qs):
-            sections.append(f"**Q{i+1}:** {q.get('question', '')}\n> {q.get('answer', '')}")
+        for i, q in enumerate(ap.conceptual_questions):
+            sections.append(f"**Q{i+1}:** {q.question}\n> {q.answer}")
             
     # Comparison Questions
-    comp_qs = ap.get("comparison_questions", [])
-    if comp_qs:
+    if ap.comparison_questions:
         sections.append("### Comparison Questions")
-        for i, q in enumerate(comp_qs):
-            sections.append(f"**Q{i+1}:** {q.get('question', '')}\n> {q.get('answer', '')}")
+        for i, q in enumerate(ap.comparison_questions):
+            sections.append(f"**Q{i+1}:** {q.question}\n> {q.answer}")
 
     # Scenario Questions
-    s_qs = ap.get("scenario_questions", [])
-    if s_qs:
+    if ap.scenario_questions:
         sections.append("### Scenario Questions")
-        for i, q in enumerate(s_qs):
-            sections.append(f"**Scenario:** {q.get('scenario', '')}\n**Expected Answer:**\n> {q.get('expected_answer', '')}")
+        for i, q in enumerate(ap.scenario_questions):
+            sections.append(f"**Scenario:** {q.scenario}\n**Expected Answer:**\n> {q.expected_answer}")
             
     # Viva Questions
-    v_qs = ap.get("viva_questions", [])
-    if v_qs:
+    if ap.viva_questions:
         sections.append("### Viva Questions")
-        for i, q in enumerate(v_qs):
-            sections.append(f"**Q{i+1}:** {q.get('question', '')}\n> {q.get('model_answer', '')}")
+        for i, q in enumerate(ap.viva_questions):
+            sections.append(f"**Q{i+1}:** {q.question}\n> {q.model_answer}")
 
     # Coding Challenges
-    code_qs = ap.get("coding_challenges", [])
-    if code_qs:
+    if ap.coding_challenges:
         sections.append("### Coding Challenges")
-        for i, q in enumerate(code_qs):
-            sections.append(f"**Challenge:** {q.get('prompt', '')}\n*(Expected Topics: {', '.join(q.get('expected_topics', []))})*")
+        for i, q in enumerate(ap.coding_challenges):
+            sections.append(f"**Challenge:** {q.prompt}\n*(Expected Topics: {', '.join(q.expected_topics)})*")
             
     # Exam Predictions
-    exam_qs = ap.get("exam_predictions", [])
-    if exam_qs:
+    if ap.exam_predictions:
         sections.append("### Exam Predictions")
-        for i, q in enumerate(exam_qs):
-            scheme = "\n".join([f"  - {s}" for s in q.get('marking_scheme', [])])
-            sections.append(f"**[{q.get('marks', 0)} Marks]** {q.get('question', '')}\n**Marking Scheme:**\n{scheme}")
+        for i, q in enumerate(ap.exam_predictions):
+            scheme = "\n".join([f"  - {s}" for s in q.marking_scheme])
+            sections.append(f"**[{q.marks} Marks]** {q.question}\n**Marking Scheme:**\n{scheme}")
 
     if not sections:
         return ""

@@ -371,6 +371,16 @@ Estimated time: 3–4 hrs
 Risk level: LOW
 Fallback if HIGH: Start with only Conceptual and Scenario questions before adding the rest.
 
+---
+
+SLICE 12 — Learning Experience
+Screens involved: UploadWorkspace, ProcessingWorkspace, StudyWorkspace
+Backend work: Create dedicated API route files (`upload.py`, `generation.py`, `study_topics.py`, etc.). Build `job_service.py` and `job.py` to track pipeline stages and progress without blocking. Ensure the frontend never calls internal services directly.
+Definition of done: A first-time student can upload a lecture, watch a detailed processing timeline (not a spinner), read the notes, and seamlessly switch between notes, flashcards, MCQs, recall prompts, cheat sheets, and advanced practice (rendered as cards). No JSON is visible to the user. No regeneration occurs when switching tabs.
+Estimated time: 6–8 hrs
+Risk level: HIGH
+Fallback if HIGH: If building the complex multi-pane StudyWorkspace is too time-consuming, build a simpler tabbed view without the left-hand hierarchical navigation.
+
 **Slice ordering rules:**
 - Slice 1 must be the core feature — the thing that proves the product works. Not auth. Not settings.
 - Auth goes in Slice 2 unless the entire product is behind auth and cannot be demoed without it.

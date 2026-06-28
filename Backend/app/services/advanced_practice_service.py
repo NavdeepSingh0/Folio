@@ -5,12 +5,13 @@ from langchain_core.prompts import PromptTemplate
 from app.models.folio import StudyTopic
 from app.models.advanced_practice import AdvancedPractice
 from app.prompts.advanced_practice_prompt import ADVANCED_PRACTICE_PROMPT
+import json_repair
 
 logger = logging.getLogger(__name__)
 
 class AdvancedPracticeService:
     def __init__(self, model_name: str = "qwen3"):
-        self.llm = OllamaLLM(model=model_name, format="json", temperature=0.4, keep_alive=-1)
+        self.llm = OllamaLLM(model=model_name, format="json", temperature=0.2, num_ctx=4096, keep_alive=-1)
 
     def generate_practice(self, topic: StudyTopic) -> AdvancedPractice:
         prompt = """
@@ -57,7 +58,7 @@ Return a valid JSON object matching this schema:
                     res = res[:-3]
             res = res.strip()
             
-            data = json.loads(res)
+            data = json_repair.loads(res)
             return AdvancedPractice(**data)
         except Exception as e:
             logger.error(f"Failed to generate advanced practice: {e}")

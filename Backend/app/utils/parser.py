@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Literal, List, Optional
 import json
 import logging
+import json_repair
 from app.models.folio import LearningObject
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ def parse_generation_response(raw_response: str, contexts: List[EducationalConte
         if start_idx != -1 and end_idx != -1:
             clean_json = clean_json[start_idx:end_idx+1]
         
-        data = json.loads(clean_json)
+        data = json_repair.loads(clean_json)
         
         if isinstance(data, dict) and "learning_objects" in data:
             data_list = data["learning_objects"]
