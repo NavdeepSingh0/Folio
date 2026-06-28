@@ -59,6 +59,7 @@ class LearningObject(BaseModel):
     prerequisites: Optional[List[str]] = None
     exam_tip: Optional[str] = None
     key_takeaways: Optional[List[str]] = None
+    advanced_practice: Optional[dict] = None
     
     # Code Generated Fields
     keywords: List[str] = Field(default_factory=list)

@@ -91,6 +91,60 @@ def get_prompt_template(type_str: str) -> str:
     else:
         return "Please process this context: {context_text}"
 
+import re
+
+def parse_markdown_to_flashcards(text: str) -> str:
+    cards = []
+    
+    # Title
+    title_match = re.search(r'^##\s+(.+)$', text, re.MULTILINE)
+    topic_title = title_match.group(1).strip() if title_match else "Topic"
+    
+    # Definition
+    def_match = re.search(r'\*\*Definition:\*\*\s*(.+)', text)
+    if def_match:
+        cards.append(f"Q: What is {topic_title}?\nA: {def_match.group(1).strip()}\n---")
+        
+    # Algorithm Steps
+    algo_match = re.search(r'\*\*Algorithm Steps:\*\*\n((?:\d+\..*\n?)+)', text)
+    if algo_match:
+        cards.append(f"Q: What are the steps for {topic_title}?\nA: {algo_match.group(1).strip()}\n---")
+        
+    # Memory Trick
+    mem_match = re.search(r'\>\s*\*\*Memory Trick:\*\*\s*(.+)', text)
+    if mem_match:
+        cards.append(f"Q: How can you remember {topic_title}?\nA: {mem_match.group(1).strip()}\n---")
+        
+    # Common Mistakes
+    mistake_match = re.search(r'\>\s*\*\*Common Mistake:\*\*\s*(.+)', text)
+    if mistake_match:
+        cards.append(f"Q: What is a common mistake regarding {topic_title}?\nA: {mistake_match.group(1).strip()}\n---")
+        
+    # Exam Tip
+    exam_match = re.search(r'\>\s*\*\*Exam Focus:\*\*\s*(.+)', text)
+    if exam_match:
+        cards.append(f"Q: What is an important exam tip for {topic_title}?\nA: {exam_match.group(1).strip()}\n---")
+        
+    return "\n\n".join(cards) if cards else None
+
+def parse_markdown_to_mcqs(text: str) -> str:
+    mcqs = []
+    title_match = re.search(r'^##\s+(.+)$', text, re.MULTILINE)
+    topic_title = title_match.group(1).strip() if title_match else "Topic"
+    
+    # Just generate one basic MCQ based on definition for speed
+    def_match = re.search(r'\*\*Definition:\*\*\s*(.+)', text)
+    if def_match:
+        ans = def_match.group(1).strip()
+        mcqs.append(f"1. What is the definition of {topic_title}?\nA) {ans}\nB) Incorrect option 1\nC) Incorrect option 2\nD) Incorrect option 3\n\nCorrect Answer: A")
+        
+    mistake_match = re.search(r'\>\s*\*\*Common Mistake:\*\*\s*(.+)', text)
+    if mistake_match:
+        ans = mistake_match.group(1).strip()
+        mcqs.append(f"2. Which of the following is a common mistake regarding {topic_title}?\nA) Incorrect option\nB) {ans}\nC) Incorrect option\nD) Incorrect option\n\nCorrect Answer: B")
+
+    return "\n\n".join(mcqs) if mcqs else None
+
 def unified_generate_stream(
     type_str: str,
     difficulty: str,
@@ -101,6 +155,19 @@ def unified_generate_stream(
     model_name: str = "qwen3",
     custom_prompt: str = None
 ):
+    # Intercept for INSTANT deterministic output if the context matches our generated Markdown!
+    if type_str == "flashcards":
+        instant_cards = parse_markdown_to_flashcards(context_text)
+        if instant_cards:
+            yield instant_cards
+            return
+            
+    if type_str == "mcq":
+        instant_mcqs = parse_markdown_to_mcqs(context_text)
+        if instant_mcqs:
+            yield instant_mcqs
+            return
+
     llm = get_llm(model_name)
     template = get_prompt_template(type_str)
     

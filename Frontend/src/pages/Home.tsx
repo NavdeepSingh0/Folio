@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { UploadWorkspace } from "../components/UploadWorkspace";
+import { UploadWorkspace } from "../components/workspaces/UploadWorkspace";
 import { Workspace } from "../components/Workspace";
+import { ProcessingWorkspace } from "../components/workspaces/ProcessingWorkspace";
 import { Sidebar } from "../components/Sidebar";
 import { Menu } from "lucide-react";
 import { useWorkspaceSettings } from "../hooks/useWorkspaceSettings";
@@ -17,6 +18,7 @@ interface Pane {
   tabIds: string[];
   activeTabId: string | null;
 }
+
 
 export function Home() {
   const [tabs, setTabs] = useState<TabData[]>([
@@ -148,106 +150,70 @@ export function Home() {
     const tab = tabs.find(t => t.id === tabId);
     if (!tab || !tab.selectedFile) return;
 
-    updateTab(tabId, { isGenerating: true, error: "", markdown: "" });
-
-    const formData = new FormData();
-    formData.append("file", tab.selectedFile);
-    formData.append("style", tab.noteStyle || settings.default_style || "university_notes");
-    formData.append("model", settings.default_model);
-    if (tab.customInstructions?.trim()) {
-      formData.append("custom_instructions", tab.customInstructions);
-    }
+    updateTab(tabId, { error: "" });
 
     try {
-      const response = await fetch("http://localhost:8000/api/generate", {
+      // 1. Upload file
+      const formData = new FormData();
+      formData.append("file", tab.selectedFile);
+
+      const uploadRes = await fetch("http://localhost:8000/api/upload", {
         method: "POST",
         body: formData,
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => null);
-        throw new Error(errData?.detail || "Failed to generate notes");
-      }
-      if (!response.body) throw new Error("No response body returned");
-      
-      const pages = parseInt(response.headers.get("X-Document-Pages") || "0", 10);
-      const chunks = parseInt(response.headers.get("X-Document-Chunks") || "0", 10);
-      const classification = response.headers.get("X-Classification") || "Other";
-      const pipelineMetricsRaw = response.headers.get("X-Pipeline-Metrics") || "{}";
-      
-      let pipelineMetrics = {};
-      try {
-        pipelineMetrics = JSON.parse(pipelineMetricsRaw);
-      } catch (e) {}
-
-      const startTime = Date.now();
-      
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
-      let fullMarkdown = "";
-      let lastUpdate = Date.now();
-
-      // Instantly switch to Workspace view so the user can see the text streaming!
-      updateTab(tabId, { isUpload: false });
-
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true });
-          fullMarkdown += chunk;
-          if (Date.now() - lastUpdate > 150) {
-            updateTab(tabId, { markdown: fullMarkdown });
-            lastUpdate = Date.now();
-          }
-        }
+      if (!uploadRes.ok) {
+        const errData = await uploadRes.json().catch(() => null);
+        throw new Error(errData?.detail || "Failed to upload file");
       }
       
-      const topicMatch = fullMarkdown.match(/^#\s+(.+)$/m);
-      const title = topicMatch && topicMatch[1].trim() ? topicMatch[1].trim() : tab.selectedFile.name;
-      const generationTimeSec = (Date.now() - startTime) / 1000;
+      const uploadData = await uploadRes.json();
       
-      pipelineMetrics = {
-        ...pipelineMetrics,
-        llm_time_sec: Number(generationTimeSec.toFixed(2)),
-        total_time_sec: Number(((pipelineMetrics as any).extract_time_sec || 0) + ((pipelineMetrics as any).clean_time_sec || 0) + ((pipelineMetrics as any).chunk_time_sec || 0) + generationTimeSec).toFixed(2)
-      };
-
-      const saveRes = await fetch("http://localhost:8000/api/projects/save", {
+      // 2. Start generation job
+      const generateRes = await fetch("http://localhost:8000/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
-          title,
-          source_filename: tab.selectedFile.name,
-          study_style: tab.noteStyle || settings.default_style || "university_notes",
-          model: settings.default_model,
-          markdown_content: fullMarkdown,
-          pages,
-          chunks,
-          generation_time: generationTimeSec,
-          classification,
-          pipeline_metrics: JSON.stringify(pipelineMetrics)
+          file_path: uploadData.file_path,
+          original_name: uploadData.original_name,
+          model: settings.default_model
         }),
       });
+
+      if (!generateRes.ok) {
+        const errData = await generateRes.json().catch(() => null);
+        throw new Error(errData?.detail || "Failed to start generation");
+      }
       
-      if (saveRes.ok) {
-        const savedProject = await saveRes.json();
-        updateTab(tabId, { 
-          title: savedProject.title,
-          projectId: savedProject.id,
-          metadata: savedProject,
-          markdown: fullMarkdown,
-          sourceFilename: savedProject.source_filename,
-          isGenerating: false
+      const generateData = await generateRes.json();
+      const jobId = generateData.job_id;
+
+      // 3. Switch to processing view
+      updateTab(tabId, { isUpload: false, isProcessing: true, jobId });
+    } catch (err: any) {
+      updateTab(tabId, { error: err.message });
+    }
+  };
+
+  const handleProcessingComplete = async (tabId: string, projectId: string) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/projects/${projectId}`);
+      if (res.ok) {
+        const data = await res.json();
+        updateTab(tabId, {
+          isProcessing: false,
+          title: data.title || "Document",
+          projectId: projectId,
+          markdown: data.markdown_content,
+          sourceFilename: data.source_filename,
+          metadata: data
         });
         fetchHierarchy();
-      } else {
-        updateTab(tabId, { markdown: fullMarkdown, isGenerating: false });
       }
-
-    } catch (err: any) {
-      updateTab(tabId, { isGenerating: false, error: err.message });
+    } catch (err) {
+      console.error("Failed to load completed project", err);
     }
   };
 
@@ -464,6 +430,15 @@ export function Home() {
             </button>
           </div>
         </div>
+      );
+    }
+
+    if (activeTab.isProcessing && activeTab.jobId) {
+      return (
+        <ProcessingWorkspace 
+          jobId={activeTab.jobId} 
+          onComplete={(projectId) => handleProcessingComplete(activeTab.id, projectId)} 
+        />
       );
     }
 

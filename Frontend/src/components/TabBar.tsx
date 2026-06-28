@@ -4,7 +4,9 @@ import React, { DragEvent } from "react";
 export interface TabData {
   id: string;
   title: string;
-  isUpload: boolean;
+  isUpload?: boolean;
+  isProcessing?: boolean;
+  jobId?: string;
   // State for upload tab
   selectedFile?: File | null;
   noteStyle?: string;

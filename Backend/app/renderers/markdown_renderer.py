@@ -98,6 +98,61 @@ def render_key_takeaways(obj: LearningObject) -> str:
     takeaways = "\n".join([f"- {t}" for t in obj.key_takeaways])
     return f"**Key Takeaways:**\n{takeaways}\n\n"
 
+def render_advanced_practice(obj: LearningObject) -> str:
+    if not obj.advanced_practice:
+        return ""
+    
+    ap = obj.advanced_practice
+    sections = []
+    
+    # Conceptual Questions
+    c_qs = ap.get("conceptual_questions", [])
+    if c_qs:
+        sections.append("### Conceptual Questions")
+        for i, q in enumerate(c_qs):
+            sections.append(f"**Q{i+1}:** {q.get('question', '')}\n> {q.get('answer', '')}")
+            
+    # Comparison Questions
+    comp_qs = ap.get("comparison_questions", [])
+    if comp_qs:
+        sections.append("### Comparison Questions")
+        for i, q in enumerate(comp_qs):
+            sections.append(f"**Q{i+1}:** {q.get('question', '')}\n> {q.get('answer', '')}")
+
+    # Scenario Questions
+    s_qs = ap.get("scenario_questions", [])
+    if s_qs:
+        sections.append("### Scenario Questions")
+        for i, q in enumerate(s_qs):
+            sections.append(f"**Scenario:** {q.get('scenario', '')}\n**Expected Answer:**\n> {q.get('expected_answer', '')}")
+            
+    # Viva Questions
+    v_qs = ap.get("viva_questions", [])
+    if v_qs:
+        sections.append("### Viva Questions")
+        for i, q in enumerate(v_qs):
+            sections.append(f"**Q{i+1}:** {q.get('question', '')}\n> {q.get('model_answer', '')}")
+
+    # Coding Challenges
+    code_qs = ap.get("coding_challenges", [])
+    if code_qs:
+        sections.append("### Coding Challenges")
+        for i, q in enumerate(code_qs):
+            sections.append(f"**Challenge:** {q.get('prompt', '')}\n*(Expected Topics: {', '.join(q.get('expected_topics', []))})*")
+            
+    # Exam Predictions
+    exam_qs = ap.get("exam_predictions", [])
+    if exam_qs:
+        sections.append("### Exam Predictions")
+        for i, q in enumerate(exam_qs):
+            scheme = "\n".join([f"  - {s}" for s in q.get('marking_scheme', [])])
+            sections.append(f"**[{q.get('marks', 0)} Marks]** {q.get('question', '')}\n**Marking Scheme:**\n{scheme}")
+
+    if not sections:
+        return ""
+        
+    return "## Advanced Practice\n\n" + "\n\n".join(sections) + "\n\n"
+
 
 def render_object(obj: LearningObject) -> str:
     """Renders a single LearningObject into a Markdown fragment."""
@@ -115,7 +170,8 @@ def render_object(obj: LearningObject) -> str:
         render_memory_trick(obj),
         render_common_mistakes(obj),
         render_exam_tip(obj),
-        render_key_takeaways(obj)
+        render_key_takeaways(obj),
+        render_advanced_practice(obj)
     ]
     # Filter out empty strings and join with no extra spacing (the functions already include trailing newlines)
     # Wait, the functions include \n\n, so we just ''.join() them.

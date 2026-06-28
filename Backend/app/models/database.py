@@ -280,9 +280,10 @@ def delete_chapter(cid: str) -> bool:
     return rows_affected > 0
 
 # Projects
-def save_project(title: str, source_filename: str, study_style: str, model: str, markdown_content: str, chapter_id: str = None, pages: int = 0, chunks: int = 0, generation_time: float = 0.0, embedding: str = None, classification: str = None, pipeline_metrics: str = None) -> dict:
+def save_project(title: str, source_filename: str, study_style: str, model: str, markdown_content: str, chapter_id: str = None, pages: int = 0, chunks: int = 0, generation_time: float = 0.0, embedding: str = None, classification: str = None, pipeline_metrics: str = None, project_id: str = None) -> dict:
     os.makedirs("output", exist_ok=True)
-    project_id = str(uuid.uuid4())
+    if not project_id:
+        project_id = str(uuid.uuid4())
     markdown_path = f"output/{project_id}.md"
     
     with open(markdown_path, "w", encoding="utf-8") as f:
