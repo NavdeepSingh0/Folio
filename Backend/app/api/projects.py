@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Optional
 from app.models.database import (
-    save_project, get_projects, get_project, update_project, move_project, delete_project
+    save_project, get_projects, get_project, update_project, move_project, delete_project,
+    get_cached_learning_objects
 )
 from app.services.embeddings_service import generate_document_embeddings_json
 
@@ -122,6 +123,16 @@ async def api_get_project(project_id: str):
         return project
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/projects/{project_id}/learning_objects")
+async def api_get_project_learning_objects(project_id: str):
+    try:
+        # The content_hash for the job's learning objects is the job_id (project_id)
+        cached_jsons = get_cached_learning_objects(project_id)
+        import json
+        return [json.loads(lo) for lo in cached_jsons]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

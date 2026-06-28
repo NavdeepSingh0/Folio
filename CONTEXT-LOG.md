@@ -43,11 +43,10 @@ Next slice: Settings
 ```
 
 ```
-[2026-06-26 01:17] OPTIMIZATION: Streaming Output
-What was optimized: Replaced synchronous generation with a
-StreamingResponse to improve UX.
-Why it was needed: 12-53 second generation times felt unresponsive
-to the user.
+[2026-06-26 01:17] SLICE: Streaming Output Optimization
+What was built: Replaced synchronous generation with a StreamingResponse to improve UX. 12-53 second generation times felt unresponsive to the user.
+Key decisions made: none
+Blockers encountered: none
 Next slice: Settings
 ```
 
@@ -199,23 +198,24 @@ Next slice: SLICE 10.6
 
 ```
 [2026-06-27 19:38] SLICE: SLICE 10.6 — Study Topic Refactor (Final Educational Architecture)
-What was built: Upgraded architecture to treat `StudyTopic` as the primary, unfragmented educational entity (wrapper for sub-concepts), preserving `LearningObject` as the internal representation.
-- **Slice 10F & 10Fb (Engine Freeze):** Finalized the generation pipeline. Introduced `EducationalSignalBuilder` to deterministically deduce learning enhancements (e.g. formulas, code blocks) based on `BlockType` rather than LLM guesswork. Enforced strict qualitative expectations in `EducationalPolicy` and extracted `PRINCIPLES_PROMPT` to ensure the generator acts as a lecturer. Verified success with V5 validation script, permanently freezing the educational engine.
+What was built: Upgraded architecture to treat `StudyTopic` as the primary, unfragmented educational entity (wrapper for sub-concepts), preserving `LearningObject` as the internal representation. Finalized generation pipeline with `EducationalSignalBuilder`.
 Key decisions made: Rather than a risky global codebase rename, `LearningObject` was retained as the internal Pydantic model for code stability, while `StudyTopic` was introduced as a semantic alias. `PIPELINE_DECISIONS.md` was created to cement this architectural philosophy.
 Blockers encountered: Minor schema mismatch errors during script updates, resolved by correcting type signatures.
-
+Next slice: SLICE 11A — Revision Engine (Deterministic)
 ```
 [2026-06-27 22:15] SLICE: SLICE 11A — Revision Engine (Deterministic)
 What was built: Designed a deterministic `RevisionEngine` to transform a `StudyTopic` into `Flashcard`, `MCQ`, `RecallPrompt`, and `CheatSheet` resources. Moved `MarkdownRenderer` to `app/renderers` to establish a clean derived-view architectural pattern. Generation of all revision assets happens in exactly 0.0002 seconds with 0 LLM calls.
-Feedback from ChatGPT: Architecture is 10/10 and the "StudyTopic as the single source of truth" paradigm is fully realized. However, educational quality of MCQs (5.5/10) and Flashcards (7.5/10) are weak because deterministic distractor logic (e.g. pulling "common misconception" directly) feels template-like. Cheat sheets and Recall prompts (8.5/10) are already strong.
-Next steps (Slice 11B): Freeze 11A as the foundation. In Slice 11B, introduce selective LLM enhancement (not replacement) to improve distractors and phrasing while preserving the zero-latency deterministic core where possible.
+Key decisions made: Architecture is 10/10 and the "StudyTopic as the single source of truth" paradigm is fully realized. 
+Blockers encountered: none
+Next slice: SLICE 11B — Educational Revision Engine
 ```
 
 ```
 [2026-06-27 22:40] SLICE: SLICE 11B — Educational Revision Engine
 What was built: Built an optional `RevisionEnrichmentService` that sends deterministic outputs (Flashcards/MCQs) to an LLM for rewriting. Fixed markdown JSON stripping. Implemented a fallback mechanism where any LLM failure cleanly returns the base deterministic artifacts.
-Feedback from ChatGPT: The architecture and fallback mechanics are excellent, but the core assumption of "rewriting" is flawed. Because the `StudyTopic` is already so rich, there's nothing left to improve via rewriting. The LLM simply returns nearly identical output.
-Next steps: Stop trying to "enhance" existing deterministic outputs. Either redefine the LLM's job to *generating net-new creative revision experiences* (e.g., Scenario Questions, Exam Predictions, Coding Challenges), or move straight to building the API layer (Slice 12) to make the existing frozen engine accessible.
+Key decisions made: The core assumption of "rewriting" was found to be flawed. Because the `StudyTopic` is already so rich, there's nothing left to improve via rewriting.
+Blockers encountered: none
+Next slice: SLICE 11.5 — Advanced Practice Engine
 ```
 
 ```
@@ -223,12 +223,11 @@ Next steps: Stop trying to "enhance" existing deterministic outputs. Either rede
 What was built: Replaced the failed "rewriting" enrichment architecture with an `AdvancedPracticeEngine` that generates entirely new, higher-order learning experiences (Conceptual, Comparison, Scenario, Viva, Coding, Exam Prediction). Deprecated old enrichment files. Added `difficulty` and `tags` to all Pydantic schemas. 
 Key decisions made: Pydantic schemas enforce robust output structure, while a creative prompt pushes the LLM to test Bloom's taxonomy application rather than simple recall.
 Blockers encountered: The `qwen3` local model initially hallucinated nested JSON (nesting one array inside another) due to the complexity of generating 6 arrays at once, but recovered successfully on a retry.
-Feedback from ChatGPT: 9.5/10. Confirmed that this slice successfully transformed Folio from a "notes generator" into a complete learning platform. Output is highly praised for testing application rather than memorization. Recommended adding difficulty progression to Coding Challenges and breaking Exam Predictions into multi-part questions (e.g., 2-mark, 5-mark, 10-mark) in a future slice. The backend is officially declared finished.
 Next slice: SLICE 12 (API & Frontend Wiring)
 ```
 
 ```
-[2026-06-28 14:05] AUDIT: Backend & Frontend Readiness
+[2026-06-28 14:05] SLICE: Backend & Frontend Readiness Audit
 What was built: Conducted full architectural audits of the Backend and Frontend to prepare for Slice 12. 
 Key decisions made: Discovered runaway generation times, SQLite concurrency locks, and Pydantic validation crashes on the backend. Frontend lacked processing UI and central state management for jobs.
 Blockers encountered: Local `qwen3` model hallucinates broken JSON when generating complex schemas.
@@ -248,5 +247,20 @@ Next slice: SLICE 12 (API & Frontend Wiring)
 What was built: Implemented complete REST API layer (`upload`, `generation`, `study_topics`, `revision`, `advanced_practice`) to decouple frontend from internal services. Built `job_service.py` to track background processing status and surface progress to the UI.
 Key decisions made: Shifted from synchronous UI blocking to background jobs returning a Job ID immediately. 
 Blockers encountered: None.
-Next slice: Project Polish / Bugfixes
+Next slice: Mini Optimization Sprint & Frontend Polish
+
+```
+[2026-06-28 15:28] SLICE: Mini Optimization Sprint & Frontend Polish
+What was built: Instrumentated backend benchmark for granular latency tracking. Split Advanced Practice into 3 sequential LLM calls with adaptive question counts. Built a Progressive Polling UI in Workspace.tsx to unlock content seamlessly.
+Key decisions made: Used an invisible HTML marker `<!-- GENERATING_ADVANCED_PRACTICE -->` in the Markdown string to coordinate frontend polling and background daemon completion without requiring schema changes.
+Blockers encountered: Pydantic failed to automatically coerce dictionaries into model instances when assigning directly to list fields, fixed by explicitly instantiating models during iteration.
+Next slice: Cross-Document Intelligence & OCR (Slice 13)
+```
+
+```
+[2026-06-28 16:44] NON-SLICE: UI Revamp & Stability Hotfixes
+What was built: Revamped Study Assistant UI to beautifully map the final Advanced Practice models. Added robust try-except error handling to AdvancedPracticeService to prevent silent background daemon crashes. Fixed complex nested CSS Flexbox scrolling issues and fully completed dark mode across all edge components.
+Key decisions made: Wrapped individual object parsers in AdvancedPracticeService in try-except blocks instead of the whole pass, ensuring the system salvages partial LLM successes instead of discarding the entire batch upon one hallucinated key.
+Blockers encountered: The lack of strict height bounding (min-h-0) in parent flex containers was silently hiding the overflow scrollbars in the frontend.
+Next slice: Cross-Document Intelligence & OCR (Slice 13)
 ```

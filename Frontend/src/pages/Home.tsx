@@ -3,7 +3,7 @@ import { UploadWorkspace } from "../components/workspaces/UploadWorkspace";
 import { Workspace } from "../components/Workspace";
 import { ProcessingWorkspace } from "../components/workspaces/ProcessingWorkspace";
 import { Sidebar } from "../components/Sidebar";
-import { Menu } from "lucide-react";
+import { Menu, Moon, Sun } from "lucide-react";
 import { useWorkspaceSettings } from "../hooks/useWorkspaceSettings";
 import { useZoom } from "../hooks/useZoom";
 import type { Project, Collection, Unit, Chapter } from "../components/Sidebar";
@@ -53,6 +53,30 @@ export function Home() {
 
   const isResizing = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const isDark = localStorage.getItem('theme') === 'dark';
+    setIsDarkMode(isDark);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    setIsDarkMode(prev => {
+      const next = !prev;
+      if (next) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+      return next;
+    });
+  };
 
   const toggleSidebar = () => {
     setIsSidebarOpen(prev => {
@@ -410,7 +434,15 @@ export function Home() {
     setPanes(prev => prev.filter(p => p.id !== paneId));
   };
 
-  const isFocus = workspaceSettings.readingMode === 'FOCUS';
+  // Determine if we should force a single-pane view (because one pane is editing)
+  const activePanes = editingPaneId 
+    ? panes.filter(p => p.id === editingPaneId) 
+    : panes;
+
+  const isFocus = workspaceSettings.readingMode === 'FOCUS' && !activePanes.some(p => {
+    const tab = tabs.find(t => t.id === p.activeTabId);
+    return !tab || tab.isUpload || tab.isProcessing;
+  });
 
   // Helper to render the content for a given pane
   const renderPaneContent = (pane: Pane) => {
@@ -495,6 +527,13 @@ export function Home() {
           metadata={activeTab.metadata}
           onReset={() => {}} // "Back" button might not make sense in tabs anymore, but we can leave it no-op
           onSave={(editedMd) => handleSaveEditedNotes(activeTab.id, editedMd)}
+          onBackgroundUpdate={(data) => {
+            updateTab(activeTab.id, { 
+              markdown: data.markdown_content, 
+              metadata: data 
+            });
+            fetchHierarchy();
+          }}
           workspaceSettings={{ 
             ...workspaceSettings, 
             readingMode: editingPaneId === pane.id ? 'EDITING' : workspaceSettings.readingMode 
@@ -516,22 +555,27 @@ export function Home() {
     );
   };
 
-  // Determine if we should force a single-pane view (because one pane is editing)
-  const activePanes = editingPaneId 
-    ? panes.filter(p => p.id === editingPaneId) 
-    : panes;
+
 
   return (
     <div ref={containerRef} className="h-screen bg-[var(--background)] flex overflow-hidden">
       {/* Activity Bar */}
       {!isFocus && (
-        <div className="w-14 bg-gray-50 flex flex-col items-center py-4 border-r border-[var(--color-border)] z-20 flex-shrink-0">
+        <div className="w-14 bg-gray-50 flex flex-col items-center justify-between py-4 border-r border-[var(--color-border)] z-20 flex-shrink-0">
           <button
             onClick={toggleSidebar}
             className={`p-2.5 rounded-xl transition-colors ${isSidebarOpen ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'}`}
             title="Explorer (Ctrl+B)"
           >
             <Menu size={22} />
+          </button>
+          
+          <button
+            onClick={toggleTheme}
+            className="p-2.5 rounded-xl transition-colors text-gray-500 hover:text-gray-700 hover:bg-gray-200"
+            title="Toggle Dark Mode"
+          >
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
         </div>
       )}

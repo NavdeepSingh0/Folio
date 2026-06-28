@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 import os
 import threading
+import time
 from typing import List
 
 from app.services.job_service import create_job, update_job_stage, update_job_topic, complete_job, fail_job, get_job, update_job_stats
@@ -17,7 +18,7 @@ from app.services.educational_signal_builder import build_signals
 from app.services.revision_engine import RevisionEngine
 from app.services.advanced_practice_service import AdvancedPracticeService
 from app.renderers.markdown_renderer import MarkdownRenderer, render_advanced_practice
-from app.models.database import save_project, get_project, update_project, update_cached_learning_object
+from app.models.database import save_project, get_project, update_project, update_cached_learning_object, cache_learning_object
 from app.models.folio import LearningObject
 
 import logging
@@ -34,8 +35,8 @@ class GenerateRequest(BaseModel):
 def _lazy_practice_pass(project_id: str, learning_objects: List[LearningObject], model_name: str):
     """
     Runs silently in a background daemon thread AFTER the job completes.
-    Generates Advanced Practice questions for each topic and appends them
-    to the markdown file on disk incrementally so the user sees them populate.
+    Generates Advanced Practice questions for each topic and updates the cache.
+    Updates a marker in the markdown so the UI knows what is being generated.
     """
     try:
         logger.info(f"[LazyPractice] Starting background practice pass for project {project_id}")
@@ -43,39 +44,36 @@ def _lazy_practice_pass(project_id: str, learning_objects: List[LearningObject],
 
         for topic in learning_objects:
             logger.info(f"[LazyPractice] Generating practice for: {topic.title}")
-            practice = adv_engine.generate_practice(topic)
-            topic.advanced_practice = practice
 
-            # 1. Update the JSON cache table so the structured data isn't lost
-            update_cached_learning_object(
-                content_hash=topic.content_hash, 
-                lo_json=topic.model_dump_json(), 
-                title=topic.title
-            )
+            # Update marker to current topic
+            latest_project = get_project(project_id)
+            if latest_project:
+                current_markdown = latest_project.get("markdown_content", "")
+                import re
+                if "<!-- GENERATING_ADVANCED_PRACTICE" in current_markdown:
+                    current_markdown = re.sub(r"<!-- GENERATING_ADVANCED_PRACTICE.*?-->", f"<!-- GENERATING_ADVANCED_PRACTICE: {topic.title} -->", current_markdown)
+                    update_project(project_id, markdown_content=current_markdown)
 
-            # 2. Update the Markdown on disk safely
-            practice_md = render_advanced_practice(topic)
-            if practice_md:
-                # Re-fetch the latest markdown inside the loop to avoid race conditions
-                # (Overwriting user edits if they modified notes while the LLM was thinking)
-                latest_project = get_project(project_id)
-                if latest_project:
-                    current_markdown = latest_project.get("markdown_content", "")
-                    topic_marker = f"## {topic.title}"
-                    if topic_marker in current_markdown:
-                        insert_pos = current_markdown.find("\n\n---\n\n", current_markdown.find(topic_marker))
-                        if insert_pos != -1:
-                            current_markdown = (
-                                current_markdown[:insert_pos]
-                                + "\n\n"
-                                + practice_md.strip()
-                                + current_markdown[insert_pos:]
-                            )
-                        else:
-                            current_markdown += "\n\n" + practice_md.strip()
+            def update_progress(practice):
+                topic.advanced_practice = practice
+                # 1. Update the JSON cache table so the structured data isn't lost
+                update_cached_learning_object(
+                    content_hash=topic.content_hash, 
+                    lo_json=topic.model_dump_json(), 
+                    title=topic.title
+                )
 
-                        update_project(project_id, markdown_content=current_markdown)
-                        logger.info(f"[LazyPractice] Saved practice for topic: {topic.title}")
+            adv_engine.generate_practice(topic, update_callback=update_progress)
+
+        # 3. Clean up the generating marker at the end
+        latest_project = get_project(project_id)
+        if latest_project:
+            current_markdown = latest_project.get("markdown_content", "")
+            import re
+            if "<!-- GENERATING_ADVANCED_PRACTICE" in current_markdown:
+                current_markdown = re.sub(r"\n\n<!-- GENERATING_ADVANCED_PRACTICE.*?-->", "", current_markdown)
+                current_markdown = re.sub(r"<!-- GENERATING_ADVANCED_PRACTICE.*?-->", "", current_markdown)
+                update_project(project_id, markdown_content=current_markdown.strip())
 
         logger.info(f"[LazyPractice] Completed background practice pass for project {project_id}")
     except Exception as e:
@@ -83,6 +81,7 @@ def _lazy_practice_pass(project_id: str, learning_objects: List[LearningObject],
 
 
 def run_generation_pipeline(job_id: str, request: GenerateRequest):
+    start_time = time.time()
     try:
         if not os.path.exists(request.file_path):
             fail_job(job_id, "File not found.")
@@ -142,6 +141,10 @@ def run_generation_pipeline(job_id: str, request: GenerateRequest):
             return
 
         update_job_stats(job_id, learning_objects=len(parse_result.learning_objects))
+        
+        # Cache the new objects so they appear in the Study Assistant immediately
+        for topic in parse_result.learning_objects:
+            cache_learning_object(job_id, topic.model_dump_json())
 
         # Deterministic Revision Engine (instant — no LLM)
         revision_engine = RevisionEngine()
@@ -162,8 +165,13 @@ def run_generation_pipeline(job_id: str, request: GenerateRequest):
         # Compile final markdown (no Advanced Practice yet — added lazily later)
         markdown_renderer = MarkdownRenderer()
         full_markdown = markdown_renderer.render(parse_result.learning_objects)
+        
+        # Add special background marker for the UI
+        first_topic = parse_result.learning_objects[0].title if parse_result.learning_objects else "Topics"
+        full_markdown += f"\n\n<!-- GENERATING_ADVANCED_PRACTICE: {first_topic} -->"
 
         # Save to database — user gets their notes NOW
+        generation_time = round(time.time() - start_time, 1)
         save_project(
             title=outline.topic if outline else "Generated Notes",
             source_filename=request.original_name,
@@ -171,7 +179,10 @@ def run_generation_pipeline(job_id: str, request: GenerateRequest):
             model=request.model,
             markdown_content=full_markdown,
             project_id=job_id,
-            classification="Educational Content"
+            classification="Educational Content",
+            pages=len(extracted_doc.slides) if extracted_doc and extracted_doc.slides else 0,
+            chunks=total_obj,
+            generation_time=generation_time
         )
 
         # === Complete job immediately so the UI transitions to StudyWorkspace ===

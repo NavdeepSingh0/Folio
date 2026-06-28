@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-primary: #2563EB;
@@ -16,6 +17,16 @@
 
 @layer base {
   :root {
+    --background: var(--color-background);
+    --foreground: var(--color-text-primary);
+  }
+
+  .dark {
+    --color-background: #0f172a;
+    --color-surface: #1e293b;
+    --color-border: #334155;
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: #94a3b8;
     --background: var(--color-background);
     --foreground: var(--color-text-primary);
   }

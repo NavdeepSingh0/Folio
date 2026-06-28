@@ -62,7 +62,7 @@ export function UploadWorkspace({
           onChange={handleFileChange}
           disabled={isGenerating}
         />
-        <div className="w-16 h-16 bg-blue-50 text-[var(--color-primary)] rounded-full flex items-center justify-center mb-4">
+        <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/40 text-[var(--color-primary)] rounded-full flex items-center justify-center mb-4 transition-colors">
           <Upload size={32} />
         </div>
         <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-2">
@@ -73,13 +73,13 @@ export function UploadWorkspace({
         </p>
         
         {selectedFile && (
-          <div className="flex items-center gap-3 p-4 bg-gray-50 border border-[var(--color-border)] rounded-[var(--radius-base)] w-full max-w-md text-left">
+          <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-slate-800/50 border border-[var(--color-border)] rounded-[var(--radius-base)] w-full max-w-md text-left transition-colors">
             {selectedFile.name.endsWith('.pdf') ? <FileText className="text-[var(--color-primary)]" /> : <FileIcon className="text-[var(--color-primary)]" />}
             <div className="flex-1 truncate">
-              <p className="font-medium text-sm text-[var(--color-text-primary)] truncate">
+              <p className="font-medium text-sm text-[var(--color-text-primary)] truncate transition-colors">
                 {selectedFile.name}
               </p>
-              <p className="text-xs text-[var(--color-text-secondary)]">
+              <p className="text-xs text-[var(--color-text-secondary)] transition-colors">
                 {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
               </p>
             </div>
@@ -132,15 +132,15 @@ export function UploadWorkspace({
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-              Custom Instructions <span className="text-gray-400 font-normal">(Optional)</span>
+            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2 transition-colors">
+              Custom Instructions <span className="text-gray-400 dark:text-gray-500 font-normal transition-colors">(Optional)</span>
             </label>
             <textarea
               value={customInstructions}
               onChange={(e) => onCustomInstructionsChange(e.target.value)}
               disabled={isGenerating}
               placeholder="e.g. Focus on the mathematical proofs, ignore historical context."
-              className="w-full px-4 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] text-[var(--color-text-primary)] min-h-[100px] resize-y"
+              className="w-full px-4 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] text-[var(--color-text-primary)] min-h-[100px] resize-y transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-600"
             />
           </div>
 

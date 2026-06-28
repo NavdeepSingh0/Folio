@@ -33,18 +33,23 @@ def run_v6_validation():
     # 2. Parse Document
     filepath = "../Uploads/3.1.3.pptx"
     print(f"[2/5] Parsing {filepath}...")
-    start_time = time.time()
     
+    t_start = time.time()
     parser = DocumentParser()
     with open(filepath, "rb") as f:
         extracted_doc = parser.parse(f.read(), "3.1.3.pptx")
-        
-    print(f"Extracted {len(extracted_doc.slides)} slides.")
+    t_extraction = time.time() - t_start
+    print(f"Extracted {len(extracted_doc.slides)} slides in {t_extraction:.2f}s.")
     
     # 3. Pipeline
     print("[3/5] Running Pipeline...")
+    t_start = time.time()
     planner_input = build_planner_input(extracted_doc)
+    t_intelligence = time.time() - t_start
+    
+    t_start = time.time()
     outline = generate_topic_outline(planner_input, model_name="qwen3")
+    t_planning = time.time() - t_start
     
     contexts = []
     for concept in outline.concepts:
@@ -64,27 +69,44 @@ def run_v6_validation():
         )
         contexts.append(ctx)
         
+    t_start = time.time()
     parse_result = generate_learning_objects(
         contexts=contexts,
         document_id="doc-v6",
         content_hash="hash-v6",
         model_name="qwen3"
     )
+    t_study_topic = time.time() - t_start
 
     # 4. Advanced Practice
     print("[4/5] Simulating background Advanced Practice...")
     adv_engine = AdvancedPracticeService(model_name="qwen3")
+    t_start = time.time()
+    t_adv_total = 0
+    t_adv_und = 0
+    t_adv_app = 0
+    t_adv_ass = 0
+    
     for topic in parse_result.learning_objects:
-        practice = adv_engine.generate_practice(topic)
+        # Pass a tracking callback to capture internal timings if desired, 
+        # or simply rely on the external wrap.
+        def tracking_callback(practice):
+            pass # We'll just time the whole generation call for now
+            
+        t_obj_start = time.time()
+        practice = adv_engine.generate_practice(topic, update_callback=tracking_callback)
+        t_adv_total += (time.time() - t_obj_start)
         topic.advanced_practice = practice
     
     # 5. Render
     print("[5/5] Rendering Markdown...")
+    t_start = time.time()
     renderer = MarkdownRenderer()
     final_markdown = renderer.render(parse_result.learning_objects) if parse_result.success else "Generation Failed."
+    t_render = time.time() - t_start
     
     end_time = time.time()
-    total_time = end_time - start_time
+    total_time = t_extraction + t_intelligence + t_planning + t_study_topic + t_adv_total + t_render
     num_objs = len(parse_result.learning_objects) if parse_result.success else 0
     throughput = num_objs / total_time if total_time > 0 else 0
     
@@ -120,7 +142,16 @@ def run_v6_validation():
 - Pages: {extracted_doc.page_count}
 
 ## Timing Metrics
-- Total Generation Time (including Advanced Practice): {total_time:.2f} seconds
+```text
+Document Extraction       {t_extraction:.2f}s
+Document Intelligence     {t_intelligence:.2f}s
+Planner                   {t_planning:.2f}s
+Study Topic               {t_study_topic:.2f}s
+Markdown                  {t_render:.2f}s
+Advanced Practice         {t_adv_total:.2f}s
+
+Total Generation Time     {total_time:.2f}s
+```
 
 ## StudyTopic Metrics
 - Total Topics Generated: {num_objs}

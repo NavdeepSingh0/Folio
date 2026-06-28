@@ -22,6 +22,7 @@ export interface WorkspaceProps {
   };
   onReset: () => void;
   onSave: (editedMarkdown: string) => void;
+  onBackgroundUpdate?: (newData: any) => void;
   workspaceSettings: any;
   updateWorkspaceSettings: (updates: any) => void;
   zoomStyle: React.CSSProperties;
@@ -31,7 +32,7 @@ const RIGHT_PANEL_DEFAULT = 280;
 const RIGHT_PANEL_MIN = 200;
 const RIGHT_PANEL_MAX = 500;
 
-export function Workspace({ projectId, chapterId, unitId, collectionId, markdown: initialMarkdown, sourceFilename, metadata, onReset, onSave, workspaceSettings, updateWorkspaceSettings, zoomStyle }: WorkspaceProps) {
+export function Workspace({ projectId, chapterId, unitId, collectionId, markdown: initialMarkdown, sourceFilename, metadata, onReset, onSave, onBackgroundUpdate, workspaceSettings, updateWorkspaceSettings, zoomStyle }: WorkspaceProps) {
   const [copied, setCopied] = useState(false);
   const [editedMarkdown, setEditedMarkdown] = useState(initialMarkdown);
   const [isMetadataOpen, setIsMetadataOpen] = useState(false);
@@ -43,6 +44,32 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
   useEffect(() => {
     setEditedMarkdown(initialMarkdown);
   }, [initialMarkdown]);
+
+  const generatingMatch = initialMarkdown.match(/<!-- GENERATING_ADVANCED_PRACTICE:\s*(.*?)\s*-->/);
+  const isGeneratingPractice = !!generatingMatch;
+  const generatingTopic = generatingMatch ? generatingMatch[1] : "";
+  const cleanMarkdown = initialMarkdown.replace(/\n\n<!-- GENERATING_ADVANCED_PRACTICE.*?-->/g, "").replace(/<!-- GENERATING_ADVANCED_PRACTICE.*?-->/g, "");
+
+  useEffect(() => {
+    if (!isGeneratingPractice || !projectId || !onBackgroundUpdate) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/api/projects/${projectId}`);
+        if (res.ok) {
+          const data = await res.json();
+          // If the backend has new content, trigger the update
+          if (data.markdown_content !== initialMarkdown) {
+            onBackgroundUpdate(data);
+          }
+        }
+      } catch (err) {
+        console.error("Polling failed", err);
+      }
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [isGeneratingPractice, projectId, initialMarkdown, onBackgroundUpdate]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -129,9 +156,9 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
   const rightPanelVisible = !isEditing && (isMetadataOpen || isStudySidebarOpen);
 
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] overflow-hidden flex flex-col h-[85vh] shadow-sm">
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-base)] overflow-hidden flex flex-col h-[85vh] shadow-sm transition-colors">
       {/* Toolbar */}
-      <div className="bg-gray-50 border-b border-[var(--color-border)] p-3 flex items-center justify-between">
+      <div className="bg-gray-50 dark:bg-slate-800/50 border-b border-[var(--color-border)] p-3 flex items-center justify-between transition-colors">
         <div className="flex items-center gap-2">
           <button
             onClick={onReset}
@@ -171,14 +198,14 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
               </button>
               <div className="w-px h-5 bg-gray-300 mx-1"></div>
               
-              <div className="flex bg-gray-100 p-0.5 rounded-md mx-1">
+              <div className="flex bg-gray-100 dark:bg-slate-800 p-0.5 rounded-md mx-1 transition-colors">
                 <button 
                   onClick={() => updateWorkspaceSettings({ readingMode: 'READING' })}
-                  className={`px-3 py-1 text-xs font-medium rounded ${workspaceSettings.readingMode === 'READING' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${workspaceSettings.readingMode === 'READING' ? 'bg-white dark:bg-slate-700 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
                 >Reading</button>
                 <button 
                   onClick={() => updateWorkspaceSettings({ readingMode: 'FOCUS' })}
-                  className={`px-3 py-1 text-xs font-medium rounded ${workspaceSettings.readingMode === 'FOCUS' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${workspaceSettings.readingMode === 'FOCUS' ? 'bg-white dark:bg-slate-700 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
                 >Focus</button>
               </div>
               
@@ -242,9 +269,9 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
               </Panel>
               <PanelResizeHandle id="editor-resize" className="w-1 bg-gray-200 hover:bg-blue-400 transition-colors z-10" />
               <Panel id="preview-panel" order={2} defaultSize={100 - safePreviewWidth} minSize={30}>
-                <div className="flex-1 flex flex-col bg-white overflow-hidden h-full">
+                <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 overflow-hidden h-full transition-colors">
                   <div className="flex-1 overflow-auto p-8 lg:p-12">
-                    <div className="prose prose-slate max-w-3xl mx-auto" style={zoomStyle}>
+                    <div className="prose prose-slate dark:prose-invert max-w-[850px] mx-auto transition-colors" style={zoomStyle}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{editedMarkdown}</ReactMarkdown>
                     </div>
                   </div>
@@ -253,12 +280,18 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
             </PanelGroup>
           ) : (
             /* Reading / Focus mode — just the preview */
-            <div className="flex-1 flex flex-col bg-white overflow-hidden h-full">
+            <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 overflow-hidden h-full relative transition-colors">
               <div className="flex-1 overflow-auto p-8 lg:p-12">
-                <div className="prose prose-slate max-w-3xl mx-auto" style={zoomStyle}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{initialMarkdown}</ReactMarkdown>
+                <div className="prose prose-slate dark:prose-invert max-w-[850px] mx-auto transition-colors" style={zoomStyle}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanMarkdown}</ReactMarkdown>
                 </div>
               </div>
+              {isGeneratingPractice && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-blue-50 text-blue-700 px-6 py-3 rounded-full shadow-lg border border-blue-100 flex items-center gap-3 animate-in slide-in-from-bottom-8 fade-in duration-500">
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm font-medium">Generating Advanced Practice for: {generatingTopic}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -279,68 +312,68 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
             overflow: 'hidden',
             flexShrink: 0,
           }}
-          className="border-l border-[var(--color-border)] bg-gray-50 flex flex-col relative"
+          className="border-l border-[var(--color-border)] bg-gray-50 dark:bg-slate-900 flex flex-col relative transition-colors min-h-0"
         >
-          <div style={{ width: rightPanelWidth, minWidth: RIGHT_PANEL_MIN }} className="h-full overflow-auto">
+          <div style={{ width: rightPanelWidth, minWidth: RIGHT_PANEL_MIN }} className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Metadata Panel */}
             {isMetadataOpen && metadata && (
-              <div className="p-4 flex flex-col gap-4 text-sm h-full">
+              <div className="p-4 flex flex-col gap-4 text-sm h-full overflow-y-auto">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-700 uppercase tracking-wider text-xs">Project Info</h3>
+                  <h3 className="font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider text-xs">Project Info</h3>
                   <button 
                     onClick={() => setIsMetadataOpen(false)}
-                    className="text-gray-400 hover:text-gray-700 transition-colors"
+                    className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                   >
                     <X size={14} />
                   </button>
                 </div>
                 
                 <div>
-                  <div className="text-gray-500 text-xs mb-0.5">Source Document</div>
-                  <div className="font-medium text-gray-800 break-words" title={sourceFilename}>{sourceFilename}</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Source Document</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-200 break-words" title={sourceFilename}>{sourceFilename}</div>
                 </div>
                 
                 <div>
-                  <div className="text-gray-500 text-xs mb-0.5">Study Style</div>
-                  <div className="font-medium text-gray-800 capitalize">{metadata.study_style.replace('_', ' ')}</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Study Style</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-200 capitalize">{metadata.study_style.replace('_', ' ')}</div>
                 </div>
 
                 <div>
-                  <div className="text-gray-500 text-xs mb-0.5">Model Used</div>
-                  <div className="font-medium text-gray-800">{metadata.model}</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Model Used</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-200">{metadata.model}</div>
                 </div>
 
                 <div>
-                  <div className="text-gray-500 text-xs mb-0.5">Word Count</div>
-                  <div className="font-medium text-gray-800">{metadata.word_count} words</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Word Count</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-200">{metadata.word_count} words</div>
                 </div>
 
                 <div>
-                  <div className="text-gray-500 text-xs mb-0.5">Pages</div>
-                  <div className="font-medium text-gray-800">{metadata.pages || 0}</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Pages</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-200">{metadata.pages || 0}</div>
                 </div>
                 
                 <div>
-                  <div className="text-gray-500 text-xs mb-0.5">Chunks</div>
-                  <div className="font-medium text-gray-800">{metadata.chunks || 0}</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Chunks</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-200">{metadata.chunks || 0}</div>
                 </div>
                 
                 <div>
-                  <div className="text-gray-500 text-xs mb-0.5">Generation Time</div>
-                  <div className="font-medium text-gray-800">{metadata.generation_time?.toFixed(1) || "0.0"}s</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Generation Time</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-200">{metadata.generation_time?.toFixed(1) || "0.0"}s</div>
                 </div>
 
                 {metadata.classification && (
                   <div>
-                    <div className="text-gray-500 text-xs mb-0.5">Classification</div>
-                    <div className="font-medium text-gray-800 bg-blue-50 text-blue-700 px-2 py-0.5 rounded inline-block text-xs border border-blue-100">{metadata.classification}</div>
+                    <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Classification</div>
+                    <div className="font-medium text-gray-800 dark:text-blue-100 bg-blue-50 dark:bg-blue-900/40 text-blue-700 px-2 py-0.5 rounded inline-block text-xs border border-blue-100 dark:border-blue-800/50">{metadata.classification}</div>
                   </div>
                 )}
                 
                 {metadata.pipeline_metrics && (
                   <div>
-                    <div className="text-gray-500 text-xs mb-1">Pipeline Metrics</div>
-                    <div className="bg-gray-100 p-2 rounded text-xs text-gray-700 font-mono space-y-1">
+                    <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">Pipeline Metrics</div>
+                    <div className="bg-gray-100 dark:bg-slate-800 p-2 rounded text-xs text-gray-700 dark:text-gray-300 font-mono space-y-1">
                       {(() => {
                         try {
                           const pm = JSON.parse(metadata.pipeline_metrics);
@@ -350,7 +383,7 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
                               {pm.clean_time_sec !== undefined && <div className="flex justify-between"><span>Clean:</span> <span>{pm.clean_time_sec}s</span></div>}
                               {pm.chunk_time_sec !== undefined && <div className="flex justify-between"><span>Chunk:</span> <span>{pm.chunk_time_sec}s</span></div>}
                               {pm.llm_time_sec !== undefined && <div className="flex justify-between"><span>LLM:</span> <span>{pm.llm_time_sec}s</span></div>}
-                              {pm.total_time_sec !== undefined && <div className="flex justify-between pt-1 border-t border-gray-200 mt-1 font-semibold"><span>Total:</span> <span>{pm.total_time_sec}s</span></div>}
+                              {pm.total_time_sec !== undefined && <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-slate-700 mt-1 font-semibold"><span>Total:</span> <span>{pm.total_time_sec}s</span></div>}
                               {pm.imported && <div>Imported directly (No LLM)</div>}
                             </>
                           );
@@ -363,13 +396,13 @@ export function Workspace({ projectId, chapterId, unitId, collectionId, markdown
                 )}
 
                 <div>
-                  <div className="text-gray-500 text-xs mb-0.5">Created</div>
-                  <div className="font-medium text-gray-800">{new Date(metadata.created_at).toLocaleDateString()}</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Created</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-200">{new Date(metadata.created_at).toLocaleDateString()}</div>
                 </div>
                 
                 <div>
-                  <div className="text-gray-500 text-xs mb-0.5">Last Edited</div>
-                  <div className="font-medium text-gray-800">{new Date(metadata.last_modified).toLocaleTimeString()}</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Last Edited</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-200">{new Date(metadata.last_modified).toLocaleTimeString()}</div>
                 </div>
               </div>
             )}

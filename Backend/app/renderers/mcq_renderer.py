@@ -14,9 +14,9 @@ class MCQRenderer:
             if topic.common_mistakes:
                 distractors[0] = topic.common_mistakes
                 
-            if topic.comparison_table and len(topic.comparison_table) > 0:
+            if topic.comparison_table and len(topic.comparison_table.headers) > 0:
                 # Try to pull some comparison headers or values as distractors
-                headers = list(topic.comparison_table[0].keys())
+                headers = topic.comparison_table.headers
                 if headers:
                     distractors[1] = f"Something related to {headers[0]}"
                     

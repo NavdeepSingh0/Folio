@@ -139,7 +139,7 @@ export function Sidebar(props: SidebarProps) {
     <div key={p.id} style={{ paddingLeft: `${indent * 12 + 8}px` }}
       onClick={() => props.onSelectProject(p.id)}
       className={`group flex items-center justify-between py-1.5 pr-2 rounded-md cursor-pointer transition-colors ${
-        props.activeProjectId === p.id ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+        props.activeProjectId === p.id ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-gray-200"
       }`}
     >
       <div className="flex items-center gap-2 overflow-hidden flex-1">
@@ -161,9 +161,9 @@ export function Sidebar(props: SidebarProps) {
   );
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-blue-600 mb-4">StudyForge</h2>
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900 transition-colors">
+      <div className="p-4 border-b border-gray-200 dark:border-slate-800 transition-colors">
+        <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400 mb-4">StudyForge</h2>
         
         <div className="flex gap-2 mb-3">
           <button onClick={props.onNewProject} className="flex-1 flex items-center justify-center gap-1 bg-blue-600 text-white py-1.5 px-2 rounded-md font-medium hover:bg-blue-700 transition-colors shadow-sm text-sm">
@@ -176,19 +176,19 @@ export function Sidebar(props: SidebarProps) {
 
         <div className="relative mb-2">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input type="text" placeholder="Search..." value={searchQuery} onChange={handleSearchChange} className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          <input type="text" placeholder="Search..." value={searchQuery} onChange={handleSearchChange} className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors" />
         </div>
         
-        <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-1 rounded-md border border-gray-200">
+        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-slate-800 p-1 rounded-md border border-gray-200 dark:border-slate-700 transition-colors">
           <button 
             onClick={() => {setSearchMode("filename"); setSemanticResults([]);}}
-            className={`flex-1 py-1 rounded text-center transition-colors ${searchMode === "filename" ? "bg-white shadow-sm text-blue-600 font-medium" : "hover:text-gray-700"}`}
+            className={`flex-1 py-1 rounded text-center transition-colors ${searchMode === "filename" ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 font-medium" : "hover:text-gray-700 dark:hover:text-gray-200"}`}
           >
             Filename
           </button>
           <button 
             onClick={handleModeToggle}
-            className={`flex-1 py-1 rounded text-center transition-colors ${searchMode === "knowledge" ? "bg-white shadow-sm text-blue-600 font-medium" : "hover:text-gray-700"}`}
+            className={`flex-1 py-1 rounded text-center transition-colors ${searchMode === "knowledge" ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 font-medium" : "hover:text-gray-700 dark:hover:text-gray-200"}`}
           >
             Knowledge
           </button>
@@ -224,8 +224,8 @@ export function Sidebar(props: SidebarProps) {
         ) : (
           <>
             <div className="flex items-center justify-between px-2 mb-2 mt-2">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hierarchy</h3>
-              <button onClick={() => { setNewName(""); setCreateModal({isOpen: true, type: 'collection', parentId: null}); }} className="text-gray-400 hover:text-gray-700" title="New Collection">
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Hierarchy</h3>
+              <button onClick={() => { setNewName(""); setCreateModal({isOpen: true, type: 'collection', parentId: null}); }} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" title="New Collection">
                 <FolderPlus size={14} />
               </button>
             </div>
@@ -236,7 +236,7 @@ export function Sidebar(props: SidebarProps) {
           
           return (
             <div key={col.id} className="mb-1">
-              <div className="group flex items-center justify-between p-1.5 rounded-md hover:bg-gray-50 cursor-pointer text-gray-800 font-semibold" onClick={() => toggleNode(col.id)}>
+              <div className="group flex items-center justify-between p-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer text-gray-800 dark:text-gray-200 font-semibold transition-colors" onClick={() => toggleNode(col.id)}>
                 <div className="flex items-center gap-1 flex-1 overflow-hidden">
                   {isColExpanded ? <ChevronDown size={14} className="text-gray-400 shrink-0" /> : <ChevronRight size={14} className="text-gray-400 shrink-0" />}
                   <Folder size={14} className="text-blue-500 shrink-0" />
@@ -259,7 +259,7 @@ export function Sidebar(props: SidebarProps) {
                 
                 return (
                   <div key={unit.id}>
-                    <div className="group flex items-center justify-between p-1.5 pl-5 rounded-md hover:bg-gray-50 cursor-pointer text-gray-700 font-medium" onClick={() => toggleNode(unit.id)}>
+                    <div className="group flex items-center justify-between p-1.5 pl-5 rounded-md hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer text-gray-700 dark:text-gray-300 font-medium transition-colors" onClick={() => toggleNode(unit.id)}>
                       <div className="flex items-center gap-1 flex-1 overflow-hidden">
                         {isUnitExpanded ? <ChevronDown size={14} className="text-gray-400 shrink-0" /> : <ChevronRight size={14} className="text-gray-400 shrink-0" />}
                         <Folder size={14} className="text-teal-500 shrink-0" />
@@ -283,7 +283,7 @@ export function Sidebar(props: SidebarProps) {
                       
                       return (
                         <div key={chap.id}>
-                          <div className="group flex items-center justify-between p-1.5 pl-9 rounded-md hover:bg-gray-50 cursor-pointer text-gray-600 font-medium" onClick={() => toggleNode(chap.id)}>
+                          <div className="group flex items-center justify-between p-1.5 pl-9 rounded-md hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer text-gray-600 dark:text-gray-400 font-medium transition-colors" onClick={() => toggleNode(chap.id)}>
                             <div className="flex items-center gap-1 flex-1 overflow-hidden">
                               {isChapExpanded ? <ChevronDown size={14} className="text-gray-400 shrink-0" /> : <ChevronRight size={14} className="text-gray-400 shrink-0" />}
                               <Folder size={14} className="text-gray-400 shrink-0" />
@@ -316,7 +316,7 @@ export function Sidebar(props: SidebarProps) {
         })}
 
         <div className="mt-4">
-          <div className="px-2 mb-2"><h3 className="text-xs font-semibold text-gray-500 uppercase">Uncategorized Notes</h3></div>
+          <div className="px-2 mb-2"><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Uncategorized Notes</h3></div>
           <div className="space-y-0.5">
             {filteredProjects.filter(p => !p.chapter_id).map(p => renderProject(p, 0))}
           </div>
@@ -325,8 +325,8 @@ export function Sidebar(props: SidebarProps) {
         )}
       </div>
 
-      <div className="p-4 border-t border-gray-200">
-        <button onClick={props.onOpenSettings} className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors w-full">
+      <div className="p-4 border-t border-gray-200 dark:border-slate-800 transition-colors">
+        <button onClick={props.onOpenSettings} className="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors w-full">
           <Settings size={18} /> Settings
         </button>
       </div>

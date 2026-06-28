@@ -7,14 +7,15 @@ $$
 \text{Time Complexity} = O(E \log V)\text{ for binary heap implementation}
 $$
 
-Dijkstra’s Algorithm operates by maintaining a priority queue of vertices, where the vertex with the smallest known distance is selected at each step. It updates the shortest path estimates for adjacent vertices, ensuring that once a vertex is processed, its shortest path is finalized. This algorithm is particularly effective for graphs with non-negative edge weights, as negative weights can invalidate the algorithm's correctness. The algorithm's efficiency is O(E log V) when using a binary heap, making it suitable for large-scale network routing and pathfinding applications. It is widely used in GPS navigation, network routing protocols like OSPF, and game development for NPC pathfinding. The algorithm's correctness relies on the property that once a vertex is processed, its shortest path cannot be improved by subsequent updates.
+Dijkstra’s Algorithm operates by maintaining a priority queue of vertices, where the vertex with the smallest known distance is selected at each step. It updates the shortest path estimates for adjacent vertices, ensuring that once a vertex is processed, its shortest path is finalized. This algorithm is effective for graphs with non-negative edge weights, as negative weights can invalidate the assumption that a finalized distance is the shortest. The algorithm's efficiency is O(E log V) when using a binary heap, making it suitable for large-scale network routing and pathfinding applications. It is particularly useful in scenarios like GPS navigation, where finding the shortest path is critical. The algorithm's correctness relies on the property that once a vertex is processed, its shortest path cannot be improved by subsequent updates.
 
 **Algorithm Steps:**
 1. Initialize a priority queue with the source node and set its distance to 0.
 2. While the queue is not empty, extract the node with the smallest known distance.
-3. For each adjacent node, calculate the tentative distance to it.
-4. If the tentative distance is less than the current known distance, update it and add the node to the queue.
-5. Repeat until all nodes are processed or the queue is empty.
+3. For each adjacent node, calculate the tentative distance to it through the current node.
+4. If the tentative distance is less than the known distance, update the distance and add the node to the queue.
+5. Mark the node as processed once its shortest distance is finalized.
+6. Repeat until all nodes are processed or the queue is empty.
 
 ```python
 import heapq
@@ -22,16 +23,15 @@ import heapq
 def dijkstra(graph, start):
     distances = {node: float('inf') for node in graph}
     distances[start] = 0
-    priority_queue = [(0, start)]
-    while priority_queue:
-        current_dist, current_node = heapq.heappop(priority_queue)
-        if current_dist > distances[current_node]:
+    heap = [(0, start)]
+    while heap:
+        current_dist, current = heapq.heappop(heap)
+        if current_dist > distances[current]:
             continue
-        for neighbor, weight in graph[current_node].items():
-            distance = current_dist + weight
-            if distance < distances[neighbor]:
-                distances[neighbor] = distance
-                heapq.heappush(priority_queue, (distance, neighbor))
+        for neighbor, weight in graph[current].items():
+            if distances[neighbor] > distances[current] + weight:
+                distances[neighbor] = distances[current] + weight
+                heapq.heappush(heap, (distances[None], neighbor))
     return distances
 ```
 
@@ -44,92 +44,92 @@ def dijkstra(graph, start):
 | Use Case | General shortest path | Unweighted shortest path | Negative weights |
 | Optimality Guaranteed | ✓ Yes | ✓ Yes (for equal weights) | ✓ Yes |
 
-> **Example:** In a road network, Dijkstra’s Algorithm helps find the shortest route from a starting city to all other cities, ensuring the fastest travel time by prioritizing roads with the least distance or travel time.
+> **Example:** In a road network, Dijkstra’s Algorithm helps find the shortest route from a starting city to all other cities, ensuring the fastest travel time by prioritizing roads with the least distance.
 
 > [!TIP]
-> **Exam Focus:** Focus on understanding the priority queue mechanism and the relaxation step. Be prepared to explain why negative weights invalidate the algorithm and how it differs from Bellman-Ford.
+> **Exam Focus:** Focus on the priority queue mechanism, the relaxation step, and the requirement for non-negative weights. Be prepared to explain the time complexity and the conditions under which the algorithm fails.
 
 ## Advanced Practice
 
 ### Conceptual Questions
 
-**Q1:** Why is Dijkstra’s Algorithm unable to handle graphs with negative edge weights, even though it is a greedy approach?
-> Dijkstra’s Algorithm assumes non-negative edge weights because once a node is processed, its shortest path is finalized. Negative weights can allow shorter paths to be discovered even after a node has been processed, violating this assumption and potentially leading to incorrect results. In contrast, Bellman-Ford iteratively relaxes all edges, making it suitable for negative weights.
+**Q1:** Why does Dijkstra’s Algorithm use a priority queue instead of a regular queue for processing nodes?
+> Dijkstra’s Algorithm uses a priority queue to always select the node with the smallest known distance next, ensuring that once a node is processed, its shortest path is finalized. A regular queue would process nodes in the order they were added, which could lead to suboptimal paths being finalized before shorter paths are discovered.
 
-**Q2:** Why does the priority queue in Dijkstra’s Algorithm ensure that nodes are processed in order of increasing distance from the source?
-> The priority queue (typically a min-heap) always selects the node with the smallest tentative distance next. This ensures that once a node is processed, its shortest path is finalized, as any subsequent path to it would be longer or equal, adhering to the greedy choice property of the algorithm.
+**Q2:** Why is the assumption of non-negative edge weights critical for Dijkstra’s Algorithm to work correctly?
+> The assumption of non-negative edge weights ensures that once a node is processed, its shortest path cannot be improved by subsequent updates. If negative weights were allowed, a node could be relaxed multiple times, and the algorithm might not find the true shortest path.
 
-**Q3:** Why is the time complexity of Dijkstra’s Algorithm O(E log V) when using a binary heap, but O(E + V log V) with a Fibonacci heap?
-> A binary heap has a higher constant factor for insertion and extraction operations compared to a Fibonacci heap, which allows for more efficient decrease-key operations. This results in a slightly better time complexity with a Fibonacci heap, though the difference is often negligible in practice due to lower constant factors in binary heaps.
+**Q3:** Why does Dijkstra’s Algorithm not guarantee finding the shortest path in graphs with negative edge weights?
+> Dijkstra’s Algorithm does not guarantee finding the shortest path in graphs with negative edge weights because the presence of negative weights can allow for shorter paths to be discovered even after a node has been processed. This violates the algorithm's assumption that once a node is processed, its shortest path is finalized.
 
 ### Comparison Questions
 
-**Q1:** Under what circumstances should Dijkstra’s Algorithm be preferred over Bellman-Ford, and why?
-> Dijkstra’s Algorithm should be preferred when the graph has non-negative edge weights and the goal is to find the shortest paths from a single source efficiently. Bellman-Ford is better suited for graphs with negative edge weights or when detecting negative cycles is necessary, but it has a higher time complexity of O(VE), making it less efficient for large graphs.
+**Q1:** Under what circumstances should Dijkstra’s Algorithm be preferred over Bellman-Ford for finding shortest paths?
+> Dijkstra’s Algorithm should be preferred over Bellman-Ford when the graph has non-negative edge weights, as it offers a significantly better time complexity of O(E log V) compared to Bellman-Ford’s O(VE). Additionally, Dijkstra’s Algorithm is more efficient for large-scale networks and provides faster results.
 
-**Q2:** When would Dijkstra’s Algorithm be more suitable than BFS for finding the shortest path in a graph?
-> Dijkstra’s Algorithm is more suitable than BFS when the graph has weighted edges with non-negative weights. BFS is only effective for unweighted graphs where all edges have the same weight, as it does not account for varying edge weights and cannot prioritize shorter paths efficiently.
+**Q2:** Under what circumstances should Dijkstra’s Algorithm be preferred over BFS for finding shortest paths?
+> Dijkstra’s Algorithm should be preferred over BFS when the graph has weighted edges with non-negative weights, as BFS is only suitable for unweighted graphs. Dijkstra’s Algorithm can handle varying edge weights and find the shortest path efficiently, while BFS would not account for different weights and might return suboptimal paths.
 
-**Q3:** Under what conditions would Dijkstra’s Algorithm be preferred over BFS in terms of time complexity and correctness?
-> Dijkstra’s Algorithm is preferred over BFS when the graph has non-negative edge weights and the shortest path requires considering varying edge weights. BFS is only correct for unweighted graphs, while Dijkstra’s Algorithm provides correct results for weighted graphs with non-negative weights, albeit with a higher time complexity of O(E log V) compared to BFS’s O(V + E).
+**Q3:** Under what circumstances should Dijkstra’s Algorithm be preferred over BFS for finding shortest paths in a network with varying edge weights?
+> Dijkstra’s Algorithm should be preferred over BFS in a network with varying non-negative edge weights because BFS treats all edges as having equal weight and does not account for differences in edge weights. Dijkstra’s Algorithm efficiently finds the shortest path by prioritizing nodes with smaller cumulative distances, making it suitable for weighted graphs.
 
 ### Scenario Questions
 
-**Scenario:** A network routing system experiences a situation where some links have negative weights due to dynamic bandwidth allocation. Which approach should be taken to ensure correct shortest path computation?
+**Scenario:** A network routing system encounters a situation where the shortest path to a destination node is dynamically changing due to fluctuating link weights. Which approach do you take to ensure the algorithm adapts efficiently?
 **Expected Answer:**
-> In this scenario, Dijkstra’s Algorithm should not be used because it cannot handle negative edge weights. Instead, Bellman-Ford should be employed, as it can handle negative weights and detect negative cycles, ensuring correct shortest path computation even in the presence of negative edge weights.
+> Implement a dynamic version of Dijkstra’s Algorithm using a priority queue that allows for efficient updates of node distances, such as using a Fibonacci heap for improved time complexity in scenarios with frequent updates.
 
-**Scenario:** A GPS navigation system encounters a graph with varying road distances and some roads with negative weights due to toll discounts. How should the system adjust its pathfinding algorithm to maintain accuracy?
+**Scenario:** A GPS navigation app receives real-time traffic updates that increase the weights of certain roads. How would you modify Dijkstra’s Algorithm to handle these changes without recalculating the entire path from scratch?
 **Expected Answer:**
-> The GPS system should switch from Dijkstra’s Algorithm to Bellman-Ford, as it can handle negative edge weights. This ensures that the shortest path is computed correctly even when some roads have negative weights, such as toll discounts, without risking incorrect results.
+> Use a priority queue that supports decrease-key operations to update existing entries, allowing the algorithm to adapt to weight changes efficiently without reprocessing all nodes.
 
-**Scenario:** A game developer is implementing NPC pathfinding in a level with weighted edges, some of which have negative weights due to special events. Which algorithm should be used, and why?
+**Scenario:** A system requires finding the shortest path in a graph where some edges have negative weights but no negative cycles. Which variation of Dijkstra’s Algorithm would you use, and why?
 **Expected Answer:**
-> The developer should use Bellman-Ford instead of Dijkstra’s Algorithm because Bellman-Ford can handle negative edge weights and detect negative cycles, ensuring accurate shortest path calculations in the presence of such weights, which is essential for correct NPC behavior during special events.
+> Use a modified version of Dijkstra’s Algorithm with a priority queue that allows for updating distances dynamically, as standard Dijkstra’s cannot handle negative weights. However, since there are no negative cycles, Bellman-Ford might be more suitable for this scenario.
 
 ### Viva Questions
 
-**Q1:** Explain Dijkstra’s Algorithm in less than 30 seconds.
-> Dijkstra’s Algorithm finds the shortest path from a source node to all other nodes in a weighted graph with non-negative edges using a priority queue to always select the next closest node, updating distances until all nodes are processed.
+**Q1:** Explain the core principle of Dijkstra’s Algorithm in less than 30 seconds.
+> Dijkstra’s Algorithm finds the shortest path from a source node to all others in a graph with non-negative weights by using a priority queue to always expand the node with the smallest known distance.
 
-**Q2:** Why is the priority queue essential in Dijkstra’s Algorithm?
-> The priority queue ensures that the node with the smallest tentative distance is processed first, allowing the algorithm to greedily select the shortest path incrementally and guaranteeing that once a node is processed, its shortest path is finalized.
+**Q2:** Why is Dijkstra’s Algorithm not suitable for graphs with negative edge weights?
+> Dijkstra’s Algorithm assumes non-negative weights, as negative weights can lead to shorter paths being discovered after a node is processed, invalidating the final distance calculation.
 
-**Q3:** Why can’t Dijkstra’s Algorithm handle negative edge weights?
-> Dijkstra’s Algorithm assumes non-negative weights because once a node is processed, its shortest path is finalized. Negative weights can allow shorter paths to be found after processing, violating this assumption and leading to incorrect results.
+**Q3:** How does Dijkstra’s Algorithm differ from BFS in terms of handling edge weights?
+> Dijkstra’s Algorithm uses a priority queue to handle weighted edges efficiently, while BFS treats all edges as equal weight and processes nodes level by level, making it unsuitable for weighted graphs.
 
 ### Coding Challenges
 
-**Challenge:** Implement Dijkstra’s Algorithm with a Fibonacci heap to improve time complexity, and analyze its efficiency compared to a binary heap implementation.
-*(Expected Topics: priority queue, time complexity, data structures)*
+**Challenge:** Implement Dijkstra’s Algorithm with a priority queue and analyze its time complexity for a graph with V vertices and E edges.
+*(Expected Topics: dijkstra’s-algorithm)*
 
-**Challenge:** Modify the standard Dijkstra’s Algorithm to handle graphs with negative edge weights by incorporating Bellman-Ford’s relaxation step, and explain the trade-offs in terms of time complexity and correctness.
-*(Expected Topics: algorithm adaptation, edge weights, time complexity)*
+**Challenge:** Modify the existing Dijkstra’s Algorithm implementation to handle a graph with multiple disconnected components and explain how the algorithm adapts.
+*(Expected Topics: dijkstra’s-algorithm)*
 
-**Challenge:** Design a function that computes the shortest path from a source to a destination using Dijkstra’s Algorithm, and analyze its time complexity for a graph with V vertices and E edges.
-*(Expected Topics: algorithm implementation, time complexity, graph theory)*
+**Challenge:** Implement Dijkstra’s Algorithm using a Fibonacci heap instead of a binary heap and analyze how this affects the time complexity.
+*(Expected Topics: dijkstra’s-algorithm)*
 
 ### Exam Predictions
 
-**[10 Marks]** Describe Dijkstra’s Algorithm, its time complexity, and explain why it cannot handle graphs with negative edge weights. Provide an example scenario where it would be appropriate to use.
+**[10 Marks]** Design an algorithm to find the shortest path from a source to all other nodes in a weighted graph with non-negative edge weights, and explain why Dijkstra’s Algorithm is suitable for this task. Include a discussion on its time complexity and the conditions under which it fails.
 **Marking Scheme:**
-  - 2 marks for describing Dijkstra’s Algorithm
-  - 2 marks for explaining time complexity
-  - 2 marks for explaining negative edge weight limitation
-  - 2 marks for providing an appropriate example
-  - 2 marks for overall clarity and coherence
+  - 2 marks for defining Dijkstra’s Algorithm
+  - 2 marks for explaining its suitability
+  - 2 marks for time complexity
+  - 2 marks for conditions of failure
+  - 2 marks for overall explanation
 
-**[10 Marks]** Compare Dijkstra’s Algorithm and Bellman-Ford in terms of time complexity, edge weight handling, and use cases. Provide a scenario where each algorithm would be the best choice.
+**[10 Marks]** Compare and contrast Dijkstra’s Algorithm with Bellman-Ford in terms of time complexity, edge weight requirements, and use cases. Provide an example scenario where each algorithm would be most appropriate.
 **Marking Scheme:**
   - 3 marks for time complexity comparison
-  - 3 marks for edge weight handling and limitations
-  - 2 marks for use case scenarios
-  - 2 marks for overall clarity and coherence
+  - 3 marks for edge weight requirements
+  - 3 marks for use case examples
+  - 1 mark for overall clarity
 
-**[10 Marks]** Implement Dijkstra’s Algorithm using a priority queue and analyze its time complexity. Discuss how the choice of priority queue data structure affects the algorithm’s performance.
+**[10 Marks]** Explain how Dijkstra’s Algorithm ensures that once a node is processed, its shortest path is finalized. Discuss the implications of this property on the algorithm’s correctness and efficiency.
 **Marking Scheme:**
-  - 3 marks for correct implementation
-  - 3 marks for time complexity analysis
-  - 2 marks for discussing priority queue impact
-  - 2 marks for overall clarity and coherence
+  - 3 marks for explaining the finalization process
+  - 3 marks for correctness implications
+  - 3 marks for efficiency implications
+  - 1 mark for overall clarity
 

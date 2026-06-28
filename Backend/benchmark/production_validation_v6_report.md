@@ -6,7 +6,16 @@
 - Pages: 20
 
 ## Timing Metrics
-- Total Generation Time (including Advanced Practice): 242.21 seconds
+```text
+Document Extraction       0.04s
+Document Intelligence     0.00s
+Planner                   17.24s
+Study Topic               80.39s
+Markdown                  0.00s
+Advanced Practice         165.22s
+
+Total Generation Time     262.89s
+```
 
 ## StudyTopic Metrics
 - Total Topics Generated: 1
@@ -27,5 +36,5 @@
 - Diagrams: 0
 
 ## Renderer Statistics
-- Markdown Size: 10593 characters
+- Markdown Size: 10085 characters
 
