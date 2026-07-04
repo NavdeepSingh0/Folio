@@ -66,7 +66,6 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     <div className="flex relative">
       <div className="flex-1 min-w-0 pr-8">
         <ReactMarkdown 
-          children={processedContent}
           remarkPlugins={[remarkGfm]}
           components={{
             h2: ({node, ...props}) => {
