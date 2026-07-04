@@ -12,24 +12,66 @@ interface MarkdownRendererProps {
 }
 
 // Parses YAML frontmatter (robust: handles \r\n and \n, nested values, quoted strings)
+// Also handles bare YAML blocks without --- delimiters at the top of a document
 function parseFrontmatter(raw: string): { meta: Record<string, string>; body: string } {
   // Normalize line endings
-  const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const fmRegex = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
+  const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimStart();
+
+  // Case 1: Standard frontmatter with --- delimiters
+  const fmRegex = /^-{3,}\s*\n([\s\S]*?)\n-{3,}\s*\n?/;
   const match = text.match(fmRegex);
 
-  if (!match) return { meta: {}, body: text };
+  if (match) {
+    const meta = parseYamlBlock(match[1]);
+    const body = text.slice(match[0].length);
+    return { meta, body };
+  }
 
-  const yamlBlock = match[1];
-  const body = text.slice(match[0].length);
+  // Case 2: No delimiters — detect if the first few lines look like YAML key:value pairs
+  const lines = text.split('\n');
+  const yamlLineRegex = /^[a-zA-Z_][a-zA-Z0-9_]*:\s*.+/;
+  let yamlEndIndex = 0;
+  for (let i = 0; i < Math.min(lines.length, 20); i++) {
+    const line = lines[i].trim();
+    if (line === '') {
+      // A blank line ends the frontmatter block
+      if (i > 0 && yamlEndIndex === i - 1) {
+        yamlEndIndex = i;
+        break;
+      }
+      continue;
+    }
+    if (yamlLineRegex.test(lines[i]) || lines[i].startsWith('  ') || lines[i].startsWith('\t')) {
+      yamlEndIndex = i;
+    } else {
+      // Non-yaml line, stop scanning
+      if (i === 0) return { meta: {}, body: text }; // First line is not yaml, no frontmatter
+      break;
+    }
+  }
+
+  // Only treat as frontmatter if we found at least 2 yaml-like lines
+  if (yamlEndIndex >= 1) {
+    const yamlLines = lines.slice(0, yamlEndIndex + 1);
+    const bodyLines = lines.slice(yamlEndIndex + 1);
+    const meta = parseYamlBlock(yamlLines.join('\n'));
+    // Skip leading blank lines in body
+    const body = bodyLines.join('\n').trimStart();
+    if (Object.keys(meta).length >= 2) {
+      return { meta, body };
+    }
+  }
+
+  return { meta: {}, body: text };
+}
+
+function parseYamlBlock(yamlBlock: string): Record<string, string> {
   const meta: Record<string, string> = {};
-
   let currentKey = '';
   let currentValue = '';
 
   const flush = () => {
     if (currentKey) {
-      // Strip surrounding quotes from values
       const v = currentValue.trim().replace(/^["']|["']$/g, '');
       meta[currentKey] = v;
     }
@@ -37,23 +79,17 @@ function parseFrontmatter(raw: string): { meta: Record<string, string>; body: st
 
   for (const line of yamlBlock.split('\n')) {
     if (line.trim() === '') continue;
-
-    // Top-level key: value  (not indented)
     const topLevel = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*):\s*(.*)/);
     if (topLevel) {
       flush();
       currentKey = topLevel[1];
       currentValue = topLevel[2];
-    } else if (line.startsWith('  ') || line.startsWith('\t')) {
-      // Indented / nested — append to current value
-      currentValue += ' ' + line.trim();
     } else {
       currentValue += ' ' + line.trim();
     }
   }
   flush();
-
-  return { meta, body };
+  return meta;
 }
 
 // Convert parsed frontmatter into a styled Markdown table string
