@@ -7,11 +7,53 @@ interface MarkdownRendererProps {
 }
 
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+  // Process YAML frontmatter into a Markdown table
+  const processedContent = useMemo(() => {
+    let text = content;
+    const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
+    const match = text.match(frontmatterRegex);
+    
+    if (match) {
+      const yamlContent = match[1];
+      const lines = yamlContent.split('\n');
+      
+      let tableMd = '| Property | Value |\n| :--- | :--- |\n';
+      
+      let currentKey = '';
+      let currentValue = '';
+      
+      for (const line of lines) {
+        if (line.trim() === '') continue;
+        
+        const colonIndex = line.indexOf(':');
+        if (colonIndex !== -1 && !line.startsWith(' ')) {
+          // New key-value pair
+          if (currentKey) {
+            tableMd += `| **${currentKey}** | ${currentValue.trim()} |\n`;
+          }
+          currentKey = line.substring(0, colonIndex).trim();
+          currentValue = line.substring(colonIndex + 1).trim();
+        } else {
+          // Continuation of previous value (e.g., nested yaml or multi-line)
+          currentValue += ' ' + line.trim();
+        }
+      }
+      
+      if (currentKey) {
+        tableMd += `| **${currentKey}** | ${currentValue.trim()} |\n`;
+      }
+      
+      text = text.replace(frontmatterRegex, tableMd + '\n');
+    }
+    
+    return text;
+  }, [content]);
+
   // Simple regex to extract H2 headings for TOC
   const headings = useMemo(() => {
-    const matches = Array.from(content.matchAll(/^##\s+(.+)$/gm));
+    const matches = Array.from(processedContent.matchAll(/^##\s+(.+)$/gm));
     return matches.map(m => m[1]);
-  }, [content]);
+  }, [processedContent]);
 
   const scrollToHeading = (id: string) => {
     const element = document.getElementById(id);
@@ -24,6 +66,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     <div className="flex relative">
       <div className="flex-1 min-w-0 pr-8">
         <ReactMarkdown 
+          children={processedContent}
           remarkPlugins={[remarkGfm]}
           components={{
             h2: ({node, ...props}) => {
@@ -32,14 +75,14 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             },
             table: ({node, ...props}) => (
               <div className="overflow-x-auto my-6">
-                <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg" {...props} />
+                <table className="min-w-full divide-y divide-border border border-border rounded-lg bg-card" {...props} />
               </div>
             ),
-            th: ({node, ...props}) => <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" {...props} />,
-            td: ({node, ...props}) => <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-t border-gray-200" {...props} />,
+            th: ({node, ...props}) => <th className="px-4 py-3 bg-muted/50 text-left text-sm font-semibold text-foreground uppercase tracking-wider" {...props} />,
+            td: ({node, ...props}) => <td className="px-4 py-3 whitespace-normal text-sm text-muted-foreground border-t border-border" {...props} />,
           }}
         >
-          {content}
+          {processedContent}
         </ReactMarkdown>
       </div>
 
