@@ -20,7 +20,7 @@ class UnifiedStudyRequest(BaseModel):
     context_id: Optional[str] = None
     custom_ids: Optional[List[str]] = None
     text: Optional[str] = None
-    model: str = "qwen3"
+    model: str = "gemini-1.5"
 
 class SearchRequest(BaseModel):
     query: str

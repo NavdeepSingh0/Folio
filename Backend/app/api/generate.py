@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 async def generate_notes(
     file: UploadFile = File(...),
     style: str = Form("university_notes"),
-    model: str = Form("qwen3"),
+    model: str = Form("gemini-1.5"),
     custom_instructions: Optional[str] = Form(None)
 ):
     if not file.filename:

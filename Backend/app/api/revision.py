@@ -15,7 +15,7 @@ class RevisionRequest(BaseModel):
     scope_id: Optional[str] = None
     custom_ids: Optional[List[str]] = None
     tool: str  # "revision_sheet", "mind_map", "cheat_sheet", "expected_questions", "last_minute"
-    model: str = "qwen3"
+    model: str = "gemini-1.5"
 
 @router.post("/generate")
 async def api_generate_revision(request: RevisionRequest):

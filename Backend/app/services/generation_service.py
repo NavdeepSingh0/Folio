@@ -1,12 +1,12 @@
 import json
 import logging
 from typing import List
-from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 from app.models.folio import LearningObject, generate_stable_id
 from app.utils.parser import parse_generation_response, ParseResult
 from app.services.educational_context_builder import EducationalContext
 from app.config.generation_principles import PRINCIPLES_PROMPT
+from app.services.gemini_service import generate_text
 import uuid
 import datetime
 
@@ -16,12 +16,9 @@ def generate_learning_objects(
     contexts: List[EducationalContext], 
     document_id: str, 
     content_hash: str, 
-    model_name: str = "qwen3"
+    model_name: str = "gemini-1.5"
 ) -> ParseResult:
     """Pass 2 (Variant C): Single LLM call wrapped in root object."""
-    
-    # Enforce temp 0.1 and json mode for reliability
-    llm = OllamaLLM(model=model_name, format="json", temperature=0.1, num_ctx=4096, keep_alive=-1)
     
     # Construct concept details and collect unique capabilities
     concept_instructions = []
@@ -59,7 +56,7 @@ def generate_learning_objects(
     if "code_example" in all_requested_caps: schema_fields.append('"code_example": "Extract implementation snippets, Java/C++/Python code, and syntax demonstrations here"')
     if "algorithm_steps" in all_requested_caps: schema_fields.append('"algorithm_steps": ["extract step 1", "extract step 2"]')
     if "formula" in all_requested_caps: schema_fields.append('"formula": "Extract the LaTeX formula (or null)"')
-    if "comparison_table" in all_requested_caps: schema_fields.append('"comparison_table": {"headers": ["Header1", "Header2"], "rows": [["val1", "val2"]]} (or null)')
+    if "comparison_table" in all_requested_caps: schema_fields.append('"comparison_table": "Extract a markdown formatted table (or null)"')
     if "diagram_description" in all_requested_caps: schema_fields.append('"diagram_description": "Extract the diagram syntax (or null)"')
     if "memory_trick" in all_requested_caps: schema_fields.append('"memory_trick": "Extract the memory trick (or null)"')
     if "common_mistakes" in all_requested_caps: schema_fields.append('"common_mistakes": "A single string explaining common mistakes (or null)"')
@@ -118,16 +115,21 @@ FULL DOCUMENT TEXT:
 {full_document_text}
 """
     template = PromptTemplate.from_template(prompt)
-    chain = template | llm
-    
+    prompt_text = template.format(
+        full_document_text=full_document_text,
+        concept_details=concept_details,
+        schema_str=schema_str,
+        policy_str=policy_str,
+        principles_prompt=PRINCIPLES_PROMPT
+    )
+
     try:
-        response = chain.invoke({
-            "full_document_text": full_document_text, 
-            "concept_details": concept_details,
-            "schema_str": schema_str,
-            "policy_str": policy_str,
-            "principles_prompt": PRINCIPLES_PROMPT
-        })
+        response = generate_text(
+            prompt_text,
+            model_name=model_name,
+            temperature=0.1,
+            max_output_tokens=2048
+        )
         
         # Two-stage parse
         parse_result = parse_generation_response(response, contexts, document_id, content_hash)

@@ -45,19 +45,10 @@ def render_code_example(obj: LearningObject) -> str:
     return f"```{lang}\n{code_text}\n```\n\n"
 
 def render_comparison_table(obj: LearningObject) -> str:
-    if not obj.comparison_table or not obj.comparison_table.headers:
+    if not obj.comparison_table or not obj.comparison_table.strip():
         return ""
     
-    headers = obj.comparison_table.headers
-    header_row = "| " + " | ".join(headers) + " |"
-    separator = "|" + "|".join(["---"] * len(headers)) + "|"
-    
-    rows = []
-    for row in obj.comparison_table.rows:
-        rows.append("| " + " | ".join(row) + " |")
-        
-    table_str = "\n".join([header_row, separator] + rows)
-    return f"**Comparison:**\n{table_str}\n\n"
+    return f"**Comparison:**\n\n{obj.comparison_table}\n\n"
 
 def render_mermaid_diagram(obj: LearningObject) -> str:
     if not obj.diagram_description:

@@ -29,7 +29,7 @@ router = APIRouter()
 class GenerateRequest(BaseModel):
     file_path: str
     original_name: str
-    model: str = "qwen3"
+    model: str = "gemini-1.5"
 
 
 def _lazy_practice_pass(project_id: str, learning_objects: List[LearningObject], model_name: str):
@@ -105,11 +105,24 @@ def run_generation_pipeline(job_id: str, request: GenerateRequest):
         update_job_stage(job_id, "Planning Study Topics", 30)
         outline = generate_topic_outline(planner_input, model_name=request.model)
 
+        if not outline.concepts:
+            # Failsafe: If the LLM decides there are 0 concepts, force a generic one.
+            from app.models.folio import TopicConcept
+            outline.concepts = [
+                TopicConcept(
+                    title="General Study Topic",
+                    type="general",
+                    confidence=1.0,
+                    covers=["All contents"],
+                    slides=[s.slide_number for s in planner_input.filtered_slides]
+                )
+            ]
+
         total_topics = len(outline.concepts)
+        update_job_stats(job_id, learning_objects=total_topics)
         contexts = []
 
         for i, concept in enumerate(outline.concepts):
-            update_job_topic(job_id, concept.title, i, total_topics)
             try:
                 btype = BlockType(concept.type)
             except ValueError:
@@ -137,11 +150,13 @@ def run_generation_pipeline(job_id: str, request: GenerateRequest):
         )
 
         if not parse_result.success or not parse_result.learning_objects:
+            logger.error(f"PIPELINE FAILED. Error: {parse_result.error}")
+            logger.error(f"RAW OUTPUT: {parse_result.raw_output}")
+            print(f"PIPELINE FAILED. Error: {parse_result.error}", flush=True)
+            print(f"RAW OUTPUT: {parse_result.raw_output}", flush=True)
             fail_job(job_id, "Failed to generate educational content.")
             return
 
-        update_job_stats(job_id, learning_objects=len(parse_result.learning_objects))
-        
         # Cache the new objects so they appear in the Study Assistant immediately
         for topic in parse_result.learning_objects:
             cache_learning_object(job_id, topic.model_dump_json())

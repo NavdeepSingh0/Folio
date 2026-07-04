@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { CustomSelect } from "./CustomSelect";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -35,45 +36,47 @@ export function SettingsModal({ isOpen, onClose, onSave, initialSettings }: Sett
           <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
             Default Model
           </label>
-          <select
+          <CustomSelect
             value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="w-full px-4 py-3 bg-[var(--color-background)] border border-[var(--color-border)] rounded-[var(--radius-base)] outline-none focus:border-[var(--color-primary)] text-[var(--color-text-primary)]"
-          >
-            <option value="qwen3">qwen3 (8B)</option>
-            <option value="llama3.2">llama3.2 (3B)</option>
-            <option value="llama3.2:1b">llama3.2:1b (1B - Faster)</option>
-            <option value="qwen2.5:0.5b">qwen2.5:0.5b (Fastest)</option>
-          </select>
+            onChange={(val) => setModel(val)}
+            options={[
+              { value: "gpt-oss-120b", label: "GPT OSS 120B (OpenRouter)" },
+              { value: "deepseek-forced:latest", label: "DeepSeek Forced (Latest)" },
+              { value: "qwen3", label: "qwen3 (8B)" },
+              { value: "llama3.2", label: "llama3.2 (3B)" },
+              { value: "llama3.2:1b", label: "llama3.2:1b (1B - Faster)" },
+              { value: "qwen2.5:0.5b", label: "qwen2.5:0.5b (Fastest)" },
+            ]}
+          />
         </div>
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
             Default Note Style
           </label>
-          <select
+          <CustomSelect
             value={style}
-            onChange={(e) => setStyle(e.target.value)}
-            className="w-full px-4 py-3 bg-[var(--color-background)] border border-[var(--color-border)] rounded-[var(--radius-base)] outline-none focus:border-[var(--color-primary)] text-[var(--color-text-primary)]"
-          >
-            <option value="university_notes">University Notes</option>
-            <option value="beginner_friendly">Beginner Friendly</option>
-            <option value="revision_notes">Revision Notes</option>
-            <option value="cheat_sheet">Cheat Sheet</option>
-            <option value="interview_prep">Interview Preparation</option>
-          </select>
+            onChange={(val) => setStyle(val)}
+            options={[
+              { value: "university_notes", label: "University Notes" },
+              { value: "beginner_friendly", label: "Beginner Friendly" },
+              { value: "revision_notes", label: "Revision Notes" },
+              { value: "cheat_sheet", label: "Cheat Sheet" },
+              { value: "interview_prep", label: "Interview Preparation" },
+            ]}
+          />
         </div>
 
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded-[var(--radius-base)] hover:bg-gray-50"
+            className="px-4 py-2 border border-[var(--color-border)] text-[var(--color-text-primary)] rounded-[var(--radius-base)] hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={() => onSave({ default_model: model, default_style: style })}
-            className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-[var(--radius-base)] hover:bg-blue-700"
+            className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-[var(--radius-base)] hover:bg-blue-700 transition-colors"
           >
             Save Preferences
           </button>

@@ -1,14 +1,14 @@
 import json
 import logging
-from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 from app.models.folio import TopicOutline
 from app.models.document_profile import PlannerInput
+from app.services.gemini_service import generate_text
 import json_repair
 
 logger = logging.getLogger(__name__)
 
-def generate_topic_outline(planner_input: PlannerInput, model_name: str = "qwen3") -> TopicOutline:
+def generate_topic_outline(planner_input: PlannerInput, model_name: str = "gemini-1.5") -> TopicOutline:
     """Pass 1: Reads a topic and outputs a strict JSON outline."""
     
     # Format hints
@@ -65,18 +65,20 @@ TOPIC TEXT:
 {text_content}
 """
     try:
-        llm = OllamaLLM(model=model_name, format="json", temperature=0.1, num_ctx=4096, keep_alive=-1) # Using format="json" if supported by the model
+        response = generate_text(
+            prompt,
+            model_name=model_name,
+            temperature=0.1,
+            max_output_tokens=1024
+        )
+        logger.info(f"RAW PLANNING RESPONSE: {response}")
         
-        response = llm.invoke(prompt)
+        data = json_repair.loads(response)
         
-        # Clean up any potential markdown ticks the model might hallucinate despite instructions
-        clean_json = response.strip()
-        if clean_json.startswith("```json"):
-            clean_json = clean_json[7:]
-        if clean_json.endswith("```"):
-            clean_json = clean_json[:-3]
+        if isinstance(data, str):
+            logger.error(f"json_repair parsed a string instead of dict. Raw response was: {response}")
+            raise ValueError(f"Expected dict, got string: {data}")
             
-        data = json_repair.loads(clean_json.strip())
         return TopicOutline(**data)
         
     except Exception as e:

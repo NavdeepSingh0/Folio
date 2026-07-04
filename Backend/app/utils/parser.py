@@ -14,15 +14,17 @@ class ParseResult(BaseModel):
     error: Optional[str]
     raw_output: str
 
+import re
 from app.services.educational_context_builder import EducationalContext
 
 def parse_generation_response(raw_response: str, contexts: List[EducationalContext], document_id: str, content_hash: str) -> ParseResult:
     """
     Two-stage parser for LLM generation response.
     Stage 1: Syntax Recovery
-    Stage 2: Schema Validation
     """
-    clean_json = raw_response.strip()
+    # Remove DeepSeek <think>...</think> blocks if present
+    raw_response_cleaned = re.sub(r'<think>.*?</think>', '', raw_response, flags=re.DOTALL).strip()
+    clean_json = raw_response_cleaned.strip()
     
     # STAGE 1: Syntax Recovery
     try:
@@ -62,7 +64,7 @@ def parse_generation_response(raw_response: str, contexts: List[EducationalConte
         
     # STAGE 2: Schema Validation
     learning_objects = []
-    slides_map = {c.concept.title.lower(): c.concept.slides for c in contexts}
+    slides_map = {c.concept.title.lower(): c.concept.slides or [] for c in contexts}
     
     try:
         for item in data_list:

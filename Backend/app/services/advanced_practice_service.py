@@ -1,7 +1,6 @@
 import json
 import logging
 from typing import Callable, Any
-from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 from app.models.folio import StudyTopic
 from app.models.advanced_practice import (
@@ -10,25 +9,28 @@ from app.models.advanced_practice import (
     VivaQuestion, CodingChallenge, ExamPrediction
 )
 from app.prompts.advanced_practice_prompt import UNDERSTANDING_PROMPT, APPLICATION_PROMPT, ASSESSMENT_PROMPT
+from app.services.gemini_service import generate_text
 import json_repair
 
 logger = logging.getLogger(__name__)
 
 class AdvancedPracticeService:
-    def __init__(self, model_name: str = "qwen3"):
-        self.llm = OllamaLLM(model=model_name, format="json", temperature=0.2, num_ctx=4096, keep_alive=-1)
+    def __init__(self, model_name: str = "gemini-1.5"):
+        self.model_name = model_name
 
     def _invoke_llm(self, prompt: str, schema: str, topic_json: str) -> dict:
         template = PromptTemplate.from_template(prompt + "\n\nSTUDY TOPIC:\n{topic_json}\n\nReturn a valid JSON object matching this schema:\n" + schema)
-        chain = template | self.llm
+        prompt_text = template.format(topic_json=topic_json)
         try:
-            res = chain.invoke({"topic_json": topic_json})
-            if res.startswith("```json"):
-                res = res[7:]
-                if res.endswith("```"):
-                    res = res[:-3]
-            res = res.strip()
-            return json_repair.loads(res)
+            res = generate_text(prompt_text, model_name=self.model_name, temperature=0.2, max_output_tokens=2048)
+            import re
+            res_cleaned = re.sub(r'<think>.*?</think>', '', res, flags=re.DOTALL).strip()
+            if res_cleaned.startswith("```json"):
+                res_cleaned = res_cleaned[7:]
+                if res_cleaned.endswith("```"):
+                    res_cleaned = res_cleaned[:-3]
+            res_cleaned = res_cleaned.strip()
+            return json_repair.loads(res_cleaned)
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
             return {}

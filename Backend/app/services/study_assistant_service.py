@@ -1,8 +1,5 @@
-from langchain_ollama import OllamaLLM
+from app.services.gemini_service import generate_text_stream
 from langchain_core.prompts import PromptTemplate
-
-def get_llm(model_name: str):
-    return OllamaLLM(model=model_name)
 
 def get_prompt_template(type_str: str) -> str:
     if type_str == "flashcards":
@@ -152,7 +149,7 @@ def unified_generate_stream(
     length: str,
     language: str,
     context_text: str,
-    model_name: str = "qwen3",
+    model_name: str = "gemini-1.5",
     custom_prompt: str = None
 ):
     # Intercept for INSTANT deterministic output if the context matches our generated Markdown!
@@ -168,18 +165,20 @@ def unified_generate_stream(
             yield instant_mcqs
             return
 
-    llm = get_llm(model_name)
     template = get_prompt_template(type_str)
-    
-    prompt = PromptTemplate.from_template(template)
-    chain = prompt | llm
-    
-    for token in chain.stream({
-        "difficulty": difficulty,
-        "quantity": quantity,
-        "length": length,
-        "language": language,
-        "context_text": context_text,
-        "custom_prompt": custom_prompt or ""
-    }):
+    prompt_text = PromptTemplate.from_template(template).format(
+        difficulty=difficulty,
+        quantity=quantity,
+        length=length,
+        language=language,
+        context_text=context_text,
+        custom_prompt=custom_prompt or ""
+    )
+
+    for token in generate_text_stream(
+        prompt_text,
+        model_name=model_name,
+        temperature=0.2,
+        max_output_tokens=2048
+    ):
         yield token
