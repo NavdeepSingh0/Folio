@@ -5,6 +5,11 @@ import uvicorn
 # Import our custom routers
 from app.api.library import router as library_router
 from app.api.upload import router as upload_router
+from app.models.database import engine, Base
+from app.models import schema
+
+# Create tables in the database (will not overwrite existing tables)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="StudyForge Backend API")
 
