@@ -166,37 +166,6 @@ export default function NoteReaderScreen() {
     setIsEdgeTabOpen(true);
   };
 
-  const screenScale = useSharedValue(1);
-  const screenBorderRadius = useSharedValue(0);
-  const screenTranslateY = useSharedValue(0);
-  const sharedScrollX = useSharedValue(0);
-  const opacity = useSharedValue(1);
-
-  const handleDismiss = () => {
-    router.replace('/');
-  };
-
-  const windowHeight = Dimensions.get('window').height;
-
-  const gesture = Gesture.Pan()
-    .enabled(isNoteSwitcherOpen)
-    .onUpdate((e) => {
-      if (e.translationY < 0) { // only allow upward swipe to close
-        screenTranslateY.value = e.translationY;
-        opacity.value = 1 + e.translationY / (windowHeight * 0.3);
-      }
-    })
-    .onEnd((e) => {
-      if (e.translationY < -120 || e.velocityY < -800) {
-        screenTranslateY.value = withTiming(-windowHeight, { duration: 250 });
-        opacity.value = withTiming(0, { duration: 200 });
-        runOnJS(handleDismiss)();
-      } else {
-        screenTranslateY.value = withTiming(0, { duration: 300 });
-        opacity.value = withTiming(1, { duration: 300 });
-      }
-    });
-
   const handleDismissTab = (id: string) => {
     setOpenNoteIds(prev => {
       const next = prev.filter(nid => nid !== id);
@@ -210,42 +179,15 @@ export default function NoteReaderScreen() {
     });
   };
 
-  useEffect(() => {
-    if (isNoteSwitcherOpen) {
-      screenScale.value = withTiming(0.85, { duration: 200 });
-      screenBorderRadius.value = withTiming(32, { duration: 200 });
-      screenTranslateY.value = withTiming(0, { duration: 200 });
-      opacity.value = withTiming(0, { duration: 200 });
-    } else {
-      screenScale.value = withTiming(1, { duration: 200 });
-      screenBorderRadius.value = withTiming(0, { duration: 200 });
-      screenTranslateY.value = withTiming(0, { duration: 200 });
-      opacity.value = withTiming(1, { duration: 200 });
-    }
-  }, [isNoteSwitcherOpen]);
-
-  const animatedScreenStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: screenTranslateY.value },
-      { scale: screenScale.value }
-    ],
-    borderRadius: screenBorderRadius.value,
-    overflow: 'hidden',
-    opacity: opacity.value,
-  }));
-
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#E5E5E5' }}>
+    <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#121212' }}>
       
-      {/* 1. Carousel renders BEHIND the active screen */}
+      {/* The Unified NoteStackViewer handles rendering the entire UI via activeCardContent */}
       <NoteStackViewer 
         notes={openNoteIds.map(id => allFiles.find(f => f.id.toString() === id)).filter(Boolean)}
         isOpen={isNoteSwitcherOpen}
         onClose={() => setIsNoteSwitcherOpen(false)}
         activeNoteId={fileId as string}
-        sharedScrollX={sharedScrollX}
-        sharedTranslateY={screenTranslateY}
-        sharedOpacity={opacity}
         onNoteSelect={(id) => {
           setIsNoteSwitcherOpen(false);
           router.setParams({ fileId: id });
@@ -255,106 +197,103 @@ export default function NoteReaderScreen() {
           setIsNoteSwitcherOpen(false);
           router.back();
         }}
+        activeCardContent={
+          <View style={{ flex: 1, backgroundColor: isDark ? '#121212' : '#FFFFFF' }}>
+            <SafeAreaView className="flex-1" edges={['top']}>
+              {/* Title Bar — icons always visible */}
+              <View className="flex-row items-center px-1 py-2.5 border-b border-border bg-background">
+                <TouchableOpacity onPress={() => router.back()} className="p-2">
+                  <ArrowLeft size={24} color={iconColor} />
+                </TouchableOpacity>
+                {isSearchOpen ? (
+                  <View className="flex-1 flex-row items-center bg-muted rounded-lg px-3 mx-2 h-9">
+                    <TextInput
+                      className="flex-1 text-base text-foreground p-0"
+                      placeholder="Search note..."
+                      placeholderTextColor={mutedIconColor}
+                      autoFocus
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                    />
+                    <TouchableOpacity onPress={() => setSearchTrigger(prev => prev + 1)} className="px-2 border-l border-border ml-2">
+                      <Text className="text-primary font-bold text-lg">↓</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSearchTrigger(prev => prev - 1)} className="px-2">
+                      <Text className="text-primary font-bold text-lg">↑</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => { setIsSearchOpen(false); setSearchQuery(''); setSearchTrigger(0); }} className="pl-2">
+                      <X size={16} color={mutedIconColor} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity 
+                    className="flex-1 px-1.5 justify-center"
+                    activeOpacity={0.7}
+                    onLongPress={() => setIsNoteSwitcherOpen(true)}
+                  >
+                    <Text className="text-foreground text-[17px] font-semibold" numberOfLines={1}>
+                      {fileData ? fileData.name : ''}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <View className="flex-row items-center">
+                  <TouchableOpacity onPress={() => setIsFilePickerOpen(true)} className="p-2">
+                    <Plus size={22} color={iconColor} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setIsSearchOpen(true)} className="p-2">
+                    <Search size={22} color={iconColor} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setIsAttachmentPickerOpen(true)} className="p-2">
+                    <Paperclip size={22} color={iconColor} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setIsChatOpen(true)} className="p-2">
+                    <MessageSquare size={22} color={iconColor} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Main Content */}
+              <View className="flex-1 bg-background">
+                {loading && !content ? (
+                  <NoteReaderSkeleton />
+                ) : (
+                  <Animated.View style={{ flex: 1 }} entering={FadeIn.duration(300)}>
+                    <MobileMarkdown content={content} searchQuery={searchQuery} searchTrigger={searchTrigger} />
+                  </Animated.View>
+                )}
+              </View>
+
+              {/* Attachment Edge Tab */}
+              {activeAttachment && !isAttachmentPickerOpen && !isChatOpen && (
+                <AttachmentEdgeTab 
+                  attachment={activeAttachment} 
+                  isOpen={isEdgeTabOpen} 
+                  onClose={() => setIsEdgeTabOpen(false)} 
+                  onChangeAttachment={() => setIsAttachmentPickerOpen(true)}
+                />
+              )}
+            </SafeAreaView>
+          </View>
+        }
       />
 
-      {/* 2. Active Screen is ON TOP. When the switcher opens, pointerEvents='none' allows touches to pass through to the carousel! */}
-      <View style={{ flex: 1 }} pointerEvents={isNoteSwitcherOpen ? 'none' : 'auto'}>
-        <GestureDetector gesture={gesture}>
-          <Animated.View style={[{ flex: 1, backgroundColor: isDark ? '#121212' : '#FFFFFF' }, animatedScreenStyle]}>
-          <SafeAreaView className="flex-1" edges={['top']}>
-          {/* Title Bar — icons always visible */}
-          <View className="flex-row items-center px-1 py-2.5 border-b border-border bg-background">
-            <TouchableOpacity onPress={() => router.back()} className="p-2">
-              <ArrowLeft size={24} color={iconColor} />
-            </TouchableOpacity>
-            {isSearchOpen ? (
-              <View className="flex-1 flex-row items-center bg-muted rounded-lg px-3 mx-2 h-9">
-                <TextInput
-                  className="flex-1 text-base text-foreground p-0"
-                  placeholder="Search note..."
-                  placeholderTextColor={mutedIconColor}
-                  autoFocus
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                <TouchableOpacity onPress={() => setSearchTrigger(prev => prev + 1)} className="px-2 border-l border-border ml-2">
-                  <Text className="text-primary font-bold text-lg">↓</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setSearchTrigger(prev => prev - 1)} className="px-2">
-                  <Text className="text-primary font-bold text-lg">↑</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { setIsSearchOpen(false); setSearchQuery(''); setSearchTrigger(0); }} className="pl-2">
-                  <X size={16} color={mutedIconColor} />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity 
-                className="flex-1 px-1.5 justify-center"
-                activeOpacity={0.7}
-                onLongPress={() => setIsNoteSwitcherOpen(true)}
-              >
-                <Text className="text-foreground text-[17px] font-semibold" numberOfLines={1}>
-                  {fileData ? fileData.name : ''}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <View className="flex-row items-center">
-              <TouchableOpacity onPress={() => setIsFilePickerOpen(true)} className="p-2">
-                <Plus size={22} color={iconColor} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setIsSearchOpen(true)} className="p-2">
-                <Search size={22} color={iconColor} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setIsAttachmentPickerOpen(true)} className="p-2">
-                <Paperclip size={22} color={iconColor} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setIsChatOpen(true)} className="p-2">
-                <MessageSquare size={22} color={iconColor} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Main Content */}
-          <View className="flex-1 bg-background">
-            {loading && !content ? (
-              <NoteReaderSkeleton />
-            ) : (
-              <Animated.View style={{ flex: 1 }} entering={FadeIn.duration(300)}>
-                <MobileMarkdown content={content} searchQuery={searchQuery} searchTrigger={searchTrigger} />
-              </Animated.View>
-            )}
-          </View>
-
-          {/* Attachment Edge Tab */}
-          {activeAttachment && !isAttachmentPickerOpen && !isChatOpen && (
-            <AttachmentEdgeTab 
-              attachment={activeAttachment} 
-              isOpen={isEdgeTabOpen} 
-              onClose={() => setIsEdgeTabOpen(false)} 
-              onChangeAttachment={() => setIsAttachmentPickerOpen(true)}
-            />
-          )}
-
-          {/* Bottom Sheets */}
-          <AttachmentPicker 
-            attachments={attachments.length > 0 ? attachments : [
-              { id: '1', filename: 'Syllabus.pdf' },
-              { id: '2', filename: 'diagram.png' }
-            ]} 
-            isOpen={isAttachmentPickerOpen} 
-            onClose={() => setIsAttachmentPickerOpen(false)}
-            onSelect={handleAttachmentSelect}
-          />
-          
-          <ChatBottomSheet 
-            fileId={fileId as string}
-            isOpen={isChatOpen} 
-            onClose={() => setIsChatOpen(false)} 
-          />
-          </SafeAreaView>
-        </Animated.View>
-      </GestureDetector>
+      {/* ── Modals and Bottom Sheets (rendered outside so they can overlay the switcher if needed) ── */}
+      <AttachmentPicker 
+        attachments={attachments.length > 0 ? attachments : [
+          { id: '1', filename: 'Syllabus.pdf' },
+          { id: '2', filename: 'diagram.png' }
+        ]} 
+        isOpen={isAttachmentPickerOpen} 
+        onClose={() => setIsAttachmentPickerOpen(false)}
+        onSelect={handleAttachmentSelect}
+      />
+      
+      <ChatBottomSheet 
+        fileId={fileId as string}
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+      />
 
       <FilePickerModal 
         notes={allFiles.filter(f => !openNoteIds.includes(f.id.toString()))}
@@ -367,8 +306,6 @@ export default function NoteReaderScreen() {
           router.setParams({ fileId: id });
         }}
       />
-
-      </View>
     </View>
   );
 }

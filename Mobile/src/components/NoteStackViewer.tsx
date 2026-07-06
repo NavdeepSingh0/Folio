@@ -1,15 +1,4 @@
-/**
- * NoteStackViewer — Android Recent Apps-style CoverFlow
- *
- * Architecture:
- * - Cards are laid out in a ScrollView with width=STEP per slot (native snap + momentum).
- * - Each card is rendered ABSOLUTELY inside its slot at width=CARD_W, centered over the slot.
- * - To fix Android's "overflow-is-untouchable" rule, we use a SECOND invisible hit-area View
- *   that is CARD_W wide and intercepts the tap, then calls onSelect.
- * - Scale + translateX interpolation from scrollX creates the depth illusion.
- */
-
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Dimensions,
   Text,
@@ -18,11 +7,7 @@ import {
   useColorScheme as useSystemColorScheme,
 } from 'react-native';
 import Animated, {
-  Extrapolation,
-  FadeIn,
-  FadeOut,
   interpolate,
-  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -33,10 +18,11 @@ import { FileText, X } from 'lucide-react-native';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 // ─── Geometry ───────────────────────────────────────────────────────────────
-export const CARD_W = SCREEN_W * 0.72;   // card visual width
-export const CARD_H = SCREEN_H * 0.72;   // card visual height
-export const STEP   = SCREEN_W * 0.28;   // scroll step between cards (narrower = more peek)
-const PAD_H = (SCREEN_W - CARD_W) / 2;  // horizontal centering padding
+export const CARD_SCALE = 0.85;
+// The step is the physical layout distance between items in the ScrollView.
+export const STEP = SCREEN_W * CARD_SCALE + 16;
+// Padding to center the wrapper slot on the screen
+const PAD_H = (SCREEN_W - STEP) / 2;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Note { id: string | number; name?: string; content_preview?: string; [k: string]: any; }
@@ -44,30 +30,27 @@ interface Note { id: string | number; name?: string; content_preview?: string; [
 interface Props {
   notes: Note[];
   isOpen: boolean;
-  activeNoteId?: string;
+  activeNoteId: string;
   onClose: () => void;
   onNoteSelect: (id: string) => void;
-  onDismissNote?: (id: string) => void;
-  onCloseAll?: () => void;
-  // Shared values wired to the main screen behind
-  sharedScrollX: Animated.SharedValue<number>;
-  sharedTranslateY: Animated.SharedValue<number>;
-  sharedOpacity:    Animated.SharedValue<number>;
+  onDismissNote: (id: string) => void;
+  onCloseAll: () => void;
+  activeCardContent: React.ReactNode;
 }
 
 // ─── NoteCard ────────────────────────────────────────────────────────────────
 function NoteCard({
   note,
-  index,
-  totalCards,
-  scrollX,
+  isActive,
+  switcherProgress,
+  activeCardContent,
   onSelect,
   onDismiss,
 }: {
   note: Note;
-  index: number;
-  totalCards: number;
-  scrollX: Animated.SharedValue<number>;
+  isActive: boolean;
+  switcherProgress: Animated.SharedValue<number>;
+  activeCardContent: React.ReactNode;
   onSelect: () => void;
   onDismiss: () => void;
 }) {
@@ -75,108 +58,101 @@ function NoteCard({
   const sys = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sys === 'dark');
 
-  /**
-   * position = 0   → this card is the "focused" one (centred in viewport)
-   * position < 0   → card is to the LEFT of focus  (older notes)
-   * position > 0   → card is to the RIGHT of focus (not used; active is rightmost)
-   */
   const cardStyle = useAnimatedStyle(() => {
-    const position = scrollX.value / STEP - index;
+    // When switcherProgress is 0 (fullscreen):
+    // active card -> scale 1.0, opacity 1
+    // inactive card -> scale CARD_SCALE, opacity 0
+    
+    // When switcherProgress is 1 (switcher open):
+    // ALL cards -> scale CARD_SCALE, opacity 1
 
-    const scale = interpolate(
-      position,
-      [-2, -1, 0, 1],
-      [0.78, 0.88, 1.0, 0.88],
-      Extrapolation.CLAMP,
+    const currentScale = interpolate(
+      switcherProgress.value,
+      [0, 1],
+      [isActive ? 1.0 : CARD_SCALE, CARD_SCALE]
     );
 
-    // Cards to the left get pushed further left (peeks) so the focus card covers them more
-    const translateX = interpolate(
-      position,
-      [-2, -1, 0, 1],
-      [-CARD_W * 0.08, -CARD_W * 0.04, 0, CARD_W * 0.04],
-      Extrapolation.CLAMP,
+    const currentOpacity = interpolate(
+      switcherProgress.value,
+      [0, 1],
+      [isActive ? 1 : 0, 1]
     );
 
-    const opacity = interpolate(Math.abs(position), [0, 2.5], [1, 0.4], Extrapolation.CLAMP);
+    const currentRadius = interpolate(
+      switcherProgress.value,
+      [0, 1],
+      [isActive ? 0 : 28, 28]
+    );
 
     return {
-      transform: [{ translateX }, { scale }],
-      opacity,
-      // Cards closer to the right should render on top
-      zIndex: index,
+      transform: [{ scale: currentScale }],
+      opacity: currentOpacity,
+      borderRadius: currentRadius,
+      overflow: 'hidden',
     };
   });
 
   return (
-    <View style={{ width: STEP, height: CARD_H }}>
-      {/* ── Visual card (absolutely positioned, CARD_W wide) ── */}
+    <View style={{ width: STEP, height: SCREEN_H, justifyContent: 'center', alignItems: 'center' }}>
+      {/* ── Visual card (literally screen sized, scaled down) ── */}
       <Animated.View
         style={[
           {
-            position: 'absolute',
-            left: -(CARD_W - STEP) / 2,   // centre the wide card inside the narrow slot
-            width: CARD_W,
-            height: CARD_H,
-            borderRadius: 28,
-            overflow: 'hidden',
-            backgroundColor: isDark ? '#1C1C1E' : '#F8F8F8',
+            width: SCREEN_W,
+            height: SCREEN_H,
+            backgroundColor: isDark ? '#121212' : '#FFF', // Match active screen bg
             borderWidth: 1,
-            borderColor: isDark ? '#333' : '#DDD',
+            borderColor: isDark ? 'transparent' : 'transparent', // We can animate this if needed
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.25,
             shadowRadius: 16,
-            elevation: index + 8,
+            elevation: isActive ? 10 : 5, 
           },
           cardStyle,
         ]}
-        pointerEvents="box-none"
       >
-            {/* Dismiss X button */}
+        {isActive ? (
+          <View style={{ flex: 1 }} pointerEvents={switcherProgress.value === 0 ? 'auto' : 'none'}>
+            {activeCardContent}
+          </View>
+        ) : (
+          <View style={{ flex: 1, backgroundColor: isDark ? '#1C1C1E' : '#F8F8F8', paddingTop: 60, paddingHorizontal: 20 }}>
+            {/* ── Dismiss X button (only visible in switcher, inside scaled card) ── */}
             <TouchableOpacity
               style={{
-                position: 'absolute', top: 12, right: 12, zIndex: 10,
-                width: 28, height: 28, borderRadius: 14,
-                backgroundColor: isDark ? '#3A3A3C' : '#E0E0E0',
+                position: 'absolute', top: 50, right: 20, zIndex: 10,
+                width: 40, height: 40, borderRadius: 20,
+                backgroundColor: isDark ? 'rgba(58,58,60,0.8)' : 'rgba(224,224,224,0.8)',
                 alignItems: 'center', justifyContent: 'center',
               }}
               onPress={onDismiss}
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             >
-              <X size={14} color={isDark ? '#FFF' : '#555'} />
+              <X size={20} color={isDark ? '#FFF' : '#555'} />
             </TouchableOpacity>
 
-            {/* Note header */}
-            <View style={{
-              flexDirection: 'row', alignItems: 'center', gap: 8,
-              marginTop: 50, marginHorizontal: 20, paddingBottom: 12,
-              borderBottomWidth: 1, borderColor: isDark ? '#2C2C2E' : '#E8E8EB',
-            }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 12, borderBottomWidth: 1, borderColor: isDark ? '#2C2C2E' : '#E8E8EB' }}>
               <FileText size={16} color="#3b82f6" />
-              <Text
-                style={{ flex: 1, fontSize: 15, fontWeight: '600', color: isDark ? '#FFF' : '#111' }}
-                numberOfLines={1}
-              >
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: isDark ? '#FFF' : '#111' }} numberOfLines={1}>
                 {note.name || 'Untitled'}
               </Text>
             </View>
-
+            <Text style={{ marginTop: 12, fontSize: 14, color: isDark ? '#888' : '#666' }} numberOfLines={15}>
+               {note.content_preview || note.markdown_content || "No content..."}
+            </Text>
+          </View>
+        )}
       </Animated.View>
 
-      {/* ── Invisible full-width hit area (CARD_W wide, positioned same as visual card) ──
-          This is the Android fix: the touchable is inside its full-size parent, so
-          Android's overflow-clip rule doesn't cut off the touch zone.          */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={onSelect}
-        style={{
-          position: 'absolute',
-          left: -(CARD_W - STEP) / 2,
-          width: CARD_W,
-          height: CARD_H,
-        }}
-      />
+      {/* ── Invisible hit area for inactive cards to select them ── */}
+      {!isActive && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={onSelect}
+          style={{ position: 'absolute', width: SCREEN_W * CARD_SCALE, height: SCREEN_H * CARD_SCALE }}
+        />
+      )}
     </View>
   );
 }
@@ -190,95 +166,89 @@ export default function NoteStackViewer({
   onNoteSelect,
   onDismissNote,
   onCloseAll,
-  sharedScrollX,
-  sharedTranslateY,
-  sharedOpacity,
+  activeCardContent,
 }: Props) {
   // Reverse so oldest=left (index 0), newest=right (index N-1)
   const orderedNotes = [...notes].reverse();
 
   const scrollRef = useRef<Animated.ScrollView>(null);
-  const activeIndex = orderedNotes.findIndex(n => n.id.toString() === activeNoteId?.toString());
-  const targetX = Math.max(0, activeIndex) * STEP;
+  
+  // switcherProgress: 0 = Fullscreen, 1 = Switcher Open
+  const switcherProgress = useSharedValue(isOpen ? 1 : 0);
 
   useEffect(() => {
-    if (!isOpen) return;
-    // Jump to active card without animation on open
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ x: targetX, animated: false });
-      sharedScrollX.value = targetX;
-    }, 30);
+    switcherProgress.value = withTiming(isOpen ? 1 : 0, { duration: 300 });
   }, [isOpen]);
 
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: e => { sharedScrollX.value = e.contentOffset.x; },
-  });
+  // When switcher opens, we need to ensure the scrollview is snapped to the active card
+  useEffect(() => {
+    if (isOpen) {
+      const activeIndex = orderedNotes.findIndex(n => n.id.toString() === activeNoteId?.toString());
+      const targetX = Math.max(0, activeIndex) * STEP;
+      // We jump instantly to ensure the scale-down animation happens at the right scroll offset
+      scrollRef.current?.scrollTo({ x: targetX, animated: false });
+    }
+  }, [isOpen, activeNoteId, orderedNotes]);
 
-  if (!isOpen) return null;
+  // Transparent backdrop style
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: switcherProgress.value,
+    pointerEvents: switcherProgress.value > 0 ? 'auto' : 'none',
+  }));
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(200)}
-      exiting={FadeOut.duration(180)}
-      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      pointerEvents="box-none"
-    >
+    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
       {/* Transparent tap-to-close backdrop */}
-      <TouchableOpacity
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        activeOpacity={1}
-        onPress={onClose}
-      />
+      <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent' }, backdropStyle]}>
+        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
+      </Animated.View>
 
       {/* ── Card Carousel ── */}
-      <View
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center' }}
-        pointerEvents="box-none"
-      >
+      <View style={{ flex: 1, justifyContent: 'center' }} pointerEvents="box-none">
         <Animated.ScrollView
           ref={scrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           snapToInterval={STEP}
           decelerationRate="fast"
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}
+          scrollEnabled={isOpen} // Only scrollable when open!
           contentContainerStyle={{
-            paddingHorizontal: PAD_H + (CARD_W - STEP) / 2,
+            paddingHorizontal: PAD_H,
             alignItems: 'center',
           }}
         >
-          {orderedNotes.map((note, index) => {
+          {orderedNotes.map((note) => {
+            const isActive = note.id.toString() === activeNoteId?.toString();
             return (
               <NoteCard
                 key={note.id.toString()}
                 note={note}
-                index={index}
-                totalCards={orderedNotes.length}
-                scrollX={sharedScrollX}
-                onSelect={() => { onClose(); onNoteSelect(note.id.toString()); }}
-                onDismiss={() => onDismissNote?.(note.id.toString())}
+                isActive={isActive}
+                switcherProgress={switcherProgress}
+                activeCardContent={activeCardContent}
+                onSelect={() => { onNoteSelect(note.id.toString()); }}
+                onDismiss={() => onDismissNote(note.id.toString())}
               />
             );
           })}
         </Animated.ScrollView>
 
         {/* Close All */}
-        <View style={{ position: 'absolute', bottom: 32, width: '100%', alignItems: 'center' }}>
+        <Animated.View style={[{ position: 'absolute', bottom: 32, width: '100%', alignItems: 'center' }, backdropStyle]}>
           <TouchableOpacity
             style={{
               paddingVertical: 13, paddingHorizontal: 32,
               backgroundColor: '#FFF', borderRadius: 999,
               shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, elevation: 8,
             }}
-            onPress={() => { onClose(); onCloseAll?.(); }}
+            onPress={() => { onCloseAll(); }}
           >
             <Text style={{ color: '#000', fontSize: 11, fontWeight: '700', letterSpacing: 2 }}>
               CLOSE ALL
             </Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
-    </Animated.View>
+    </View>
   );
 }
