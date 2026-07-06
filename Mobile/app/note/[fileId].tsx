@@ -14,7 +14,7 @@ import MobileMarkdown from '../../src/components/mobile/MobileMarkdown';
 import ChatBottomSheet from '../../src/components/mobile/ChatBottomSheet';
 import AttachmentPicker from '../../src/components/mobile/AttachmentPicker';
 import AttachmentEdgeTab from '../../src/components/mobile/AttachmentEdgeTab';
-import NoteStackViewer, { STEP } from '../../src/components/NoteStackViewer';
+import NoteStackViewer, { STEP, CARD_W } from '../../src/components/NoteStackViewer';
 import FilePickerModal from '../../src/components/FilePickerModal';
 import { useAuthStore } from '../../src/store/authStore';
 
@@ -169,6 +169,7 @@ export default function NoteReaderScreen() {
   const screenTranslateY = useSharedValue(0);
   const sharedScrollX = useSharedValue(0);
   const opacity = useSharedValue(1);
+  const switcherProgress = useSharedValue(0);
 
   const handleDismiss = () => {
     router.replace('/');
@@ -210,40 +211,57 @@ export default function NoteReaderScreen() {
 
   useEffect(() => {
     if (isNoteSwitcherOpen) {
-      screenScale.value = withTiming(0.75, { duration: 300 });
-      screenBorderRadius.value = withTiming(32, { duration: 300 });
+      switcherProgress.value = withTiming(1, { duration: 300 });
       screenTranslateY.value = withTiming(0, { duration: 300 });
       opacity.value = withTiming(1, { duration: 300 });
     } else {
-      screenScale.value = withTiming(1, { duration: 300 });
-      screenBorderRadius.value = withTiming(0, { duration: 300 });
+      switcherProgress.value = withTiming(0, { duration: 300 });
       screenTranslateY.value = withTiming(0, { duration: 300 });
       opacity.value = withTiming(1, { duration: 300 });
     }
   }, [isNoteSwitcherOpen]);
 
-  const notesForCarouselCount = openNoteIds.filter(id => allFiles.some(f => f.id.toString() === id)).length;
+  const validOpenNotes = openNoteIds.filter(id => allFiles.some(f => f.id.toString() === id));
+  // Find index in standard order, then reverse it because NoteStackViewer reverses the array
+  const activeIndexReversed = validOpenNotes.findIndex(id => id === fileId);
+  const activeIndex = activeIndexReversed >= 0 ? validOpenNotes.length - 1 - activeIndexReversed : Math.max(0, validOpenNotes.length - 1);
 
-  const screenTranslateX = useDerivedValue(() => {
-    if (isNoteSwitcherOpen) {
-      // Active note is at the rightmost position: activeIndex * STEP
-      const activeIndex = Math.max(0, openNoteIds.length - 1);
-      const maxScroll = activeIndex * STEP;
-      // When scrollX == maxScroll we are on the active note → translateX = 0
-      // When scrollX < maxScroll we scrolled left → push screen right
-      return maxScroll - sharedScrollX.value;
-    } else {
-      return withTiming(0, { duration: 300 });
-    }
-  }, [isNoteSwitcherOpen, openNoteIds.length]);
+  const animatedScreenScale = useDerivedValue(() => {
+    // 0.72 scale perfectly matches the 72% screen width of CARD_W in NoteStackViewer
+    const position = sharedScrollX.value / STEP - activeIndex;
+    const carouselScale = interpolate(
+      position,
+      [-2, -1, 0, 1],
+      [0.78, 0.88, 1.0, 0.88],
+      'clamp'
+    );
+    const targetScale = carouselScale * 0.72;
+    return interpolate(switcherProgress.value, [0, 1], [1, targetScale]);
+  });
+
+  const animatedScreenTranslateX = useDerivedValue(() => {
+    const position = sharedScrollX.value / STEP - activeIndex;
+    const innerTranslateX = interpolate(
+      position,
+      [-2, -1, 0, 1],
+      [-CARD_W * 0.08, -CARD_W * 0.04, 0, CARD_W * 0.04],
+      'clamp'
+    );
+    const targetTranslateX = (activeIndex * STEP - sharedScrollX.value) + innerTranslateX;
+    return interpolate(switcherProgress.value, [0, 1], [0, targetTranslateX]);
+  });
+
+  const animatedScreenBorderRadius = useDerivedValue(() => {
+    return interpolate(switcherProgress.value, [0, 1], [0, 32]);
+  });
 
   const animatedScreenStyle = useAnimatedStyle(() => ({
     transform: [
-      { scale: screenScale.value }, 
+      { scale: animatedScreenScale.value }, 
       { translateY: screenTranslateY.value },
-      { translateX: screenTranslateX.value }
+      { translateX: animatedScreenTranslateX.value }
     ],
-    borderRadius: screenBorderRadius.value,
+    borderRadius: animatedScreenBorderRadius.value,
     overflow: 'hidden',
     opacity: opacity.value,
   }));
