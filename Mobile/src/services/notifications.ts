@@ -53,18 +53,18 @@ export async function setupLocalNotifications() {
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   // TEST NOTIFICATION: Fire 5 seconds from now so the user can see it!
-  await Notifications.scheduleNotificationAsync({
-    content: { 
-      title: "Test Notification 🎉", 
-      body: "Notifications are working perfectly on your device!",
-      sound: true 
-    },
-    // @ts-ignore - Expo types for timeInterval trigger
-    trigger: { seconds: 5, type: 'timeInterval' },
-  });
+  //await Notifications.scheduleNotificationAsync({
+  // content: { 
+  //title: "Test Notification 🎉", 
+  // body: "Notifications are working perfectly on your device!",
+  // sound: true 
+  //},
+  // @ts-ignore - Expo types for timeInterval trigger
+  //trigger: { seconds: 5, type: 'timeInterval' },
+  //});
 
   const now = new Date();
-  
+
   // Schedule rotating reminders for the next 7 days
   // We re-run this logic on app launch, so it continually "tops up" the next 7 days.
   for (let i = 0; i < 7; i++) {
@@ -99,7 +99,7 @@ export async function setupLocalNotifications() {
 export async function scheduleExamReminder(examDate: Date, subjectName: string) {
   const reminderDate = new Date(examDate);
   // Remind 3 days before at 10 AM
-  reminderDate.setDate(reminderDate.getDate() - 3); 
+  reminderDate.setDate(reminderDate.getDate() - 3);
   reminderDate.setHours(10, 0, 0, 0);
 
   if (reminderDate > new Date()) {
