@@ -120,7 +120,7 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
       return (
         <View className={`flex-1 w-full ${isDark ? 'bg-background' : 'bg-muted'}`}>
           <Pdf
-            source={pdfSource}
+            source={{ uri: fileUrl, cache: false }}
             onLoadComplete={(numberOfPages,filePath) => {}}
             onPageChanged={(page,numberOfPages) => {}}
             onError={(error) => { 
