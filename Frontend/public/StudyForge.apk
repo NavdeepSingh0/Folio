@@ -1,0 +1,1 @@
+This is a placeholder for the actual Android APK. To generate the real production APK, please run 'eas build -p android' in the Mobile directory.
