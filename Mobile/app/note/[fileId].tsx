@@ -16,6 +16,7 @@ import AttachmentPicker from '../../src/components/mobile/AttachmentPicker';
 import AttachmentEdgeTab from '../../src/components/mobile/AttachmentEdgeTab';
 import NoteStackViewer from '../../src/components/NoteStackViewer';
 import FilePickerModal from '../../src/components/FilePickerModal';
+import { useAuthStore } from '../../src/store/authStore';
 
 // Skeleton blocks
 function SkeletonBlock({ width, height, className }: { width: number | string; height: number; className?: string }) {
@@ -56,6 +57,7 @@ export default function NoteReaderScreen() {
   // Search
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchTrigger, setSearchTrigger] = useState(0);
 
   // Panels
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -72,9 +74,13 @@ export default function NoteReaderScreen() {
     }
   }, [fileId]);
 
+  const { initialized, session } = useAuthStore();
+
   useEffect(() => {
-    loadNote();
-  }, [fileId]);
+    if (initialized && session) {
+      loadNote();
+    }
+  }, [fileId, initialized, session]);
 
   const loadNote = async () => {
     setLoading(true);
@@ -232,7 +238,13 @@ export default function NoteReaderScreen() {
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                 />
-                <TouchableOpacity onPress={() => { setIsSearchOpen(false); setSearchQuery(''); }}>
+                <TouchableOpacity onPress={() => setSearchTrigger(prev => prev + 1)} className="px-2 border-l border-border ml-2">
+                  <Text className="text-primary font-bold text-lg">↓</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setSearchTrigger(prev => prev - 1)} className="px-2">
+                  <Text className="text-primary font-bold text-lg">↑</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setIsSearchOpen(false); setSearchQuery(''); setSearchTrigger(0); }} className="pl-2">
                   <X size={16} color={mutedIconColor} />
                 </TouchableOpacity>
               </View>
@@ -270,7 +282,7 @@ export default function NoteReaderScreen() {
               <NoteReaderSkeleton />
             ) : (
               <Animated.View style={{ flex: 1 }} entering={FadeIn.duration(300)}>
-                <MobileMarkdown content={content} searchQuery={searchQuery} />
+                <MobileMarkdown content={content} searchQuery={searchQuery} searchTrigger={searchTrigger} />
               </Animated.View>
             )}
           </View>

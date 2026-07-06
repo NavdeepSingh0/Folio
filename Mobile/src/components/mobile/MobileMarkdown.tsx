@@ -6,28 +6,33 @@ import { WebView } from 'react-native-webview';
 interface MobileMarkdownProps {
   content: string;
   searchQuery?: string;
+  searchTrigger?: number;
 }
 
-export default function MobileMarkdown({ content, searchQuery }: MobileMarkdownProps) {
+export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0 }: MobileMarkdownProps) {
   const webViewRef = useRef<WebView>(null);
   const { theme } = useThemeStore();
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
+  const prevTrigger = useRef(searchTrigger);
 
   // Inject search query whenever it changes
   useEffect(() => {
     if (webViewRef.current) {
       if (searchQuery && searchQuery.trim() !== '') {
+        const isBackwards = searchTrigger < prevTrigger.current;
+        prevTrigger.current = searchTrigger;
+        
         // Simple search highlighting via JS
         webViewRef.current.injectJavaScript(`
           if (window.find) {
-            window.find('${searchQuery}', false, false, true, false, true, false);
+            window.find('${searchQuery}', false, ${isBackwards}, true, false, true, false);
           }
           true;
         `);
       }
     }
-  }, [searchQuery]);
+  }, [searchQuery, searchTrigger]);
 
   if (!content) return null;
 

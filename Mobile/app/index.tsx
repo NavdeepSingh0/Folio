@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Folder, FileText, ArrowRight } from 'lucide-react-native';
+import { useAuthStore } from '../src/store/authStore';
 import { api } from '../src/api';
 import { cache } from '../src/cache';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -83,10 +84,14 @@ export default function HomeScreen() {
     }
   }, []);
 
+  const { initialized, session } = useAuthStore();
+
   useFocusEffect(useCallback(() => {
     setUsername(storage.getString('user.username') || 'Alex');
-    loadData();
-  }, []));
+    if (initialized && session) {
+      loadData();
+    }
+  }, [initialized, session]));
 
   const handleRefresh = () => {
     setRefreshing(true);
