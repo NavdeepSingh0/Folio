@@ -226,12 +226,16 @@ export default function NoteReaderScreen() {
 
   const screenTranslateX = useDerivedValue(() => {
     if (isNoteSwitcherOpen) {
-      const maxScroll = (notesForCarouselCount > 0 ? notesForCarouselCount - 1 : 0) * STEP;
+      // Active note is at the rightmost position: activeIndex * STEP
+      const activeIndex = Math.max(0, openNoteIds.length - 1);
+      const maxScroll = activeIndex * STEP;
+      // When scrollX == maxScroll we are on the active note → translateX = 0
+      // When scrollX < maxScroll we scrolled left → push screen right
       return maxScroll - sharedScrollX.value;
     } else {
       return withTiming(0, { duration: 300 });
     }
-  }, [isNoteSwitcherOpen, notesForCarouselCount]);
+  }, [isNoteSwitcherOpen, openNoteIds.length]);
 
   const animatedScreenStyle = useAnimatedStyle(() => ({
     transform: [
