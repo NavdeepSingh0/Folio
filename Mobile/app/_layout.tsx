@@ -26,6 +26,7 @@ import { vars } from 'nativewind';
 import { useThemeStore } from '../src/store/themeStore';
 import { useAuthStore } from '../src/store/authStore';
 import AnimatedSplashScreen from '../src/components/AnimatedSplashScreen';
+import { setupLocalNotifications } from '../src/services/notifications';
 
 const lightTheme = vars({
   '--color-background': '#FAFAFC',
@@ -69,6 +70,7 @@ export default function Layout() {
 
   useEffect(() => {
     initialize();
+    setupLocalNotifications();
   }, []);
 
   useEffect(() => {
