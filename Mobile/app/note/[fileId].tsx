@@ -171,7 +171,6 @@ export default function NoteReaderScreen() {
   const screenTranslateY = useSharedValue(0);
   const sharedScrollX = useSharedValue(0);
   const opacity = useSharedValue(1);
-  const switcherProgress = useSharedValue(0);
 
   const handleDismiss = () => {
     router.replace('/');
@@ -213,57 +212,24 @@ export default function NoteReaderScreen() {
 
   useEffect(() => {
     if (isNoteSwitcherOpen) {
-      switcherProgress.value = withTiming(1, { duration: 300 });
-      screenTranslateY.value = withTiming(0, { duration: 300 });
-      opacity.value = withTiming(1, { duration: 300 });
+      screenScale.value = withTiming(0.85, { duration: 200 });
+      screenBorderRadius.value = withTiming(32, { duration: 200 });
+      screenTranslateY.value = withTiming(0, { duration: 200 });
+      opacity.value = withTiming(0, { duration: 200 });
     } else {
-      switcherProgress.value = withTiming(0, { duration: 300 });
-      screenTranslateY.value = withTiming(0, { duration: 300 });
-      opacity.value = withTiming(1, { duration: 300 });
+      screenScale.value = withTiming(1, { duration: 200 });
+      screenBorderRadius.value = withTiming(0, { duration: 200 });
+      screenTranslateY.value = withTiming(0, { duration: 200 });
+      opacity.value = withTiming(1, { duration: 200 });
     }
   }, [isNoteSwitcherOpen]);
 
-  const validOpenNotes = openNoteIds.filter(id => allFiles.some(f => f.id.toString() === id));
-  // Find index in standard order, then reverse it because NoteStackViewer reverses the array
-  const activeIndexReversed = validOpenNotes.findIndex(id => id === fileId);
-  const activeIndex = activeIndexReversed >= 0 ? validOpenNotes.length - 1 - activeIndexReversed : Math.max(0, validOpenNotes.length - 1);
-
-  const animatedScreenScale = useDerivedValue(() => {
-    // 0.72 scale perfectly matches the 72% screen width of CARD_W in NoteStackViewer
-    const position = sharedScrollX.value / STEP - activeIndex;
-    const carouselScale = interpolate(
-      position,
-      [-2, -1, 0, 1],
-      [0.78, 0.88, 1.0, 0.88],
-      'clamp'
-    );
-    const targetScale = carouselScale * 0.72;
-    return interpolate(switcherProgress.value, [0, 1], [1, targetScale]);
-  });
-
-  const animatedScreenTranslateX = useDerivedValue(() => {
-    const position = sharedScrollX.value / STEP - activeIndex;
-    const innerTranslateX = interpolate(
-      position,
-      [-2, -1, 0, 1],
-      [-CARD_W * 0.08, -CARD_W * 0.04, 0, CARD_W * 0.04],
-      'clamp'
-    );
-    const targetTranslateX = (activeIndex * STEP - sharedScrollX.value) + innerTranslateX;
-    return interpolate(switcherProgress.value, [0, 1], [0, targetTranslateX]);
-  });
-
-  const animatedScreenBorderRadius = useDerivedValue(() => {
-    return interpolate(switcherProgress.value, [0, 1], [0, 32]);
-  });
-
   const animatedScreenStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: animatedScreenTranslateX.value },
       { translateY: screenTranslateY.value },
-      { scale: animatedScreenScale.value }
+      { scale: screenScale.value }
     ],
-    borderRadius: animatedScreenBorderRadius.value,
+    borderRadius: screenBorderRadius.value,
     overflow: 'hidden',
     opacity: opacity.value,
   }));

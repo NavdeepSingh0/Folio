@@ -59,7 +59,7 @@ interface Props {
 function NoteCard({
   note,
   index,
-  isSpacer,
+  index,
   totalCards,
   scrollX,
   onSelect,
@@ -67,7 +67,7 @@ function NoteCard({
 }: {
   note: Note;
   index: number;
-  isSpacer: boolean;
+  index: number;
   totalCards: number;
   scrollX: Animated.SharedValue<number>;
   onSelect: () => void;
@@ -100,9 +100,7 @@ function NoteCard({
       Extrapolation.CLAMP,
     );
 
-    const opacity = isSpacer
-      ? 0 // invisible — the real active note shows through behind
-      : interpolate(Math.abs(position), [0, 2.5], [1, 0.4], Extrapolation.CLAMP);
+    const opacity = interpolate(Math.abs(position), [0, 2.5], [1, 0.4], Extrapolation.CLAMP);
 
     return {
       transform: [{ translateX }, { scale }],
@@ -124,23 +122,19 @@ function NoteCard({
             height: CARD_H,
             borderRadius: 28,
             overflow: 'hidden',
-            backgroundColor: isSpacer
-              ? 'transparent'
-              : isDark ? '#1C1C1E' : '#F8F8F8',
-            borderWidth: isSpacer ? 0 : 1,
+            backgroundColor: isDark ? '#1C1C1E' : '#F8F8F8',
+            borderWidth: 1,
             borderColor: isDark ? '#333' : '#DDD',
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: isSpacer ? 0 : 0.25,
+            shadowOpacity: 0.25,
             shadowRadius: 16,
-            elevation: isSpacer ? 0 : index + 8,
+            elevation: index + 8,
           },
           cardStyle,
         ]}
-        pointerEvents={isSpacer ? 'none' : 'box-none'}
+        pointerEvents="box-none"
       >
-        {!isSpacer && (
-          <>
             {/* Dismiss X button */}
             <TouchableOpacity
               style={{
@@ -170,34 +164,21 @@ function NoteCard({
               </Text>
             </View>
 
-            {/* Note preview */}
-            <View style={{ flex: 1, marginHorizontal: 20, marginTop: 12 }}>
-              <Text
-                style={{ fontSize: 12, lineHeight: 20, color: isDark ? '#8C8C91' : '#888' }}
-                numberOfLines={18}
-              >
-                {note.content_preview || ''}
-              </Text>
-            </View>
-          </>
-        )}
       </Animated.View>
 
       {/* ── Invisible full-width hit area (CARD_W wide, positioned same as visual card) ──
           This is the Android fix: the touchable is inside its full-size parent, so
           Android's overflow-clip rule doesn't cut off the touch zone.          */}
-      {!isSpacer && (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={onSelect}
-          style={{
-            position: 'absolute',
-            left: -(CARD_W - STEP) / 2,
-            width: CARD_W,
-            height: CARD_H,
-          }}
-        />
-      )}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onSelect}
+        style={{
+          position: 'absolute',
+          left: -(CARD_W - STEP) / 2,
+          width: CARD_W,
+          height: CARD_H,
+        }}
+      />
     </View>
   );
 }
@@ -270,13 +251,10 @@ export default function NoteStackViewer({
           }}
         >
           {orderedNotes.map((note, index) => {
-            const isSpacer = note.id.toString() === activeNoteId?.toString();
-            return (
               <NoteCard
                 key={note.id.toString()}
                 note={note}
                 index={index}
-                isSpacer={isSpacer}
                 totalCards={orderedNotes.length}
                 scrollX={sharedScrollX}
                 onSelect={() => { onClose(); onNoteSelect(note.id.toString()); }}
