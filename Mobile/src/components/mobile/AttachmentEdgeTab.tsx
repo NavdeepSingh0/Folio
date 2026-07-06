@@ -105,7 +105,7 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
             onPageChanged={(page,numberOfPages) => {}}
             onError={(error) => { console.log(error); }}
             onPressLink={(uri) => {}}
-            trustAllCerts={Platform.OS === 'ios' ? false : true}
+            trustAllCerts={false}
             style={{ flex: 1, backgroundColor: isDark ? '#151516' : '#F5F5F7' }}
           />
         </View>
