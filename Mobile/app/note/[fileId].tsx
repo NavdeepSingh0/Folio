@@ -6,7 +6,7 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Plus, Paperclip, MessageSquare, Search, X } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withTiming, runOnJS, useDerivedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { api } from '../../src/api';
 import { cache } from '../../src/cache';
@@ -14,7 +14,7 @@ import MobileMarkdown from '../../src/components/mobile/MobileMarkdown';
 import ChatBottomSheet from '../../src/components/mobile/ChatBottomSheet';
 import AttachmentPicker from '../../src/components/mobile/AttachmentPicker';
 import AttachmentEdgeTab from '../../src/components/mobile/AttachmentEdgeTab';
-import NoteStackViewer from '../../src/components/NoteStackViewer';
+import NoteStackViewer, { STEP } from '../../src/components/NoteStackViewer';
 import FilePickerModal from '../../src/components/FilePickerModal';
 import { useAuthStore } from '../../src/store/authStore';
 
@@ -167,6 +167,7 @@ export default function NoteReaderScreen() {
   const screenScale = useSharedValue(1);
   const screenBorderRadius = useSharedValue(0);
   const screenTranslateY = useSharedValue(0);
+  const sharedScrollX = useSharedValue(0);
   const opacity = useSharedValue(1);
 
   const handleDismiss = () => {
@@ -197,13 +198,10 @@ export default function NoteReaderScreen() {
   const handleDismissTab = (id: string) => {
     setOpenNoteIds(prev => {
       const next = prev.filter(nid => nid !== id);
-      // If we dismissed the currently active note, we might want to navigate
-      // But the 3D switcher is handling the UI. If it's empty, we close it and go back.
       if (next.length === 0) {
         setIsNoteSwitcherOpen(false);
         router.back();
       } else if (id === fileId) {
-        // If we closed the active note, switch active to the first available
         router.setParams({ fileId: next[0] });
       }
       return next;
@@ -224,8 +222,23 @@ export default function NoteReaderScreen() {
     }
   }, [isNoteSwitcherOpen]);
 
+  const notesForCarouselCount = openNoteIds.filter(id => allFiles.some(f => f.id.toString() === id)).length;
+
+  const screenTranslateX = useDerivedValue(() => {
+    if (isNoteSwitcherOpen) {
+      const maxScroll = (notesForCarouselCount > 0 ? notesForCarouselCount - 1 : 0) * STEP;
+      return maxScroll - sharedScrollX.value;
+    } else {
+      return withTiming(0, { duration: 300 });
+    }
+  }, [isNoteSwitcherOpen, notesForCarouselCount]);
+
   const animatedScreenStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: screenScale.value }, { translateY: screenTranslateY.value }],
+    transform: [
+      { scale: screenScale.value }, 
+      { translateY: screenTranslateY.value },
+      { translateX: screenTranslateX.value }
+    ],
     borderRadius: screenBorderRadius.value,
     overflow: 'hidden',
     opacity: opacity.value,
@@ -347,6 +360,7 @@ export default function NoteReaderScreen() {
         isOpen={isNoteSwitcherOpen}
         onClose={() => setIsNoteSwitcherOpen(false)}
         activeNoteId={fileId as string}
+        sharedScrollX={sharedScrollX}
         onNoteSelect={(id) => {
           setIsNoteSwitcherOpen(false);
           router.setParams({ fileId: id });

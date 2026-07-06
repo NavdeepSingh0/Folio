@@ -49,7 +49,6 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
       if (attachment && attachment.filename?.match(/\.pdf$/i)) {
         let url = attachment.public_url || attachment.url || null;
         if (url) {
-          url = url.split('?')[0];
           setLocalPdfPath(null);
           setPdfError(false);
           setPdfLoading(true);
