@@ -23,7 +23,7 @@ export const CARD_W = SCREEN_WIDTH * 0.75;
 export const CARD_H = SCREEN_HEIGHT * 0.75;
 export const STEP = CARD_W * 0.45; // 45% spacing = 55% overlap
 const SIDE_PADDING = (SCREEN_WIDTH - CARD_W) / 2;
-const RIGHT_PADDING = (SCREEN_WIDTH / 2) + (CARD_W / 2) - STEP;
+const RIGHT_PADDING = SIDE_PADDING;
 
 interface NoteStackViewerProps {
   notes: any[];
@@ -88,7 +88,7 @@ function NoteCard({ note, index, isSpacer, scrollX, sharedTranslateY, sharedOpac
   });
 
   return (
-    <View style={{ width: STEP, height: CARD_H, zIndex: index }}>
+    <View style={{ width: CARD_W, height: CARD_H, zIndex: index, marginLeft: index > 0 ? -(CARD_W - STEP) : 0 }}>
       <GestureDetector gesture={gesture}>
         <Animated.View 
           className={isSpacer ? "" : "shadow-2xl border"}
@@ -160,7 +160,7 @@ export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpe
   if (!isOpen) return null;
 
   return (
-    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 }}>
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
       {/* Backdrop (Completely transparent so the background screen is perfectly visible) */}
       <Animated.View 
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent' }}
