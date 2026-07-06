@@ -1,19 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, Dimensions, TouchableOpacity, useColorScheme as useSystemColorScheme, StyleSheet } from 'react-native';
+import { View, Text, Dimensions, TouchableOpacity, useColorScheme as useSystemColorScheme } from 'react-native';
 import { useThemeStore } from '../../src/store/themeStore';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
   withTiming, 
-  runOnJS,
-  withSpring,
   ZoomIn,
   FadeOut,
   useAnimatedScrollHandler,
   interpolate,
   Extrapolation
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { FileText } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -21,9 +18,8 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 // CoverFlow Metrics
 export const CARD_W = SCREEN_WIDTH * 0.75;
 export const CARD_H = SCREEN_HEIGHT * 0.75;
-export const STEP = CARD_W * 0.45; // 45% spacing = 55% overlap
+export const STEP = CARD_W * 0.45; // 45% step = 55% overlap
 const SIDE_PADDING = (SCREEN_WIDTH - CARD_W) / 2;
-const RIGHT_PADDING = SIDE_PADDING;
 
 interface NoteStackViewerProps {
   notes: any[];
@@ -38,118 +34,106 @@ interface NoteStackViewerProps {
   sharedOpacity: Animated.SharedValue<number>;
 }
 
-// Single swipeable note card
-function NoteCard({ note, index, isSpacer, scrollX, sharedTranslateY, sharedOpacity, onSelect, onDismiss }: { note: any; index: number; isSpacer?: boolean; scrollX: Animated.SharedValue<number>; sharedTranslateY: Animated.SharedValue<number>; sharedOpacity: Animated.SharedValue<number>; onSelect: () => void; onDismiss: () => void }) {
-  const localTranslateY = useSharedValue(0);
-  const localOpacity = useSharedValue(1);
-
-  const translateY = isSpacer ? sharedTranslateY : localTranslateY;
-  const opacity = isSpacer ? sharedOpacity : localOpacity;
-
-  const gesture = Gesture.Pan()
-    .onUpdate((e) => {
-      if (e.translationY < 0) { // only allow upward swipe
-        translateY.value = e.translationY;
-        opacity.value = 1 + e.translationY / (SCREEN_HEIGHT * 0.3); // fade as you swipe up
-      }
-    })
-    .onEnd((e) => {
-      if (e.translationY < -120 || e.velocityY < -800) {
-        translateY.value = withTiming(-SCREEN_HEIGHT, { duration: 250 });
-        opacity.value = withTiming(0, { duration: 200 });
-        runOnJS(onDismiss)();
-      } else {
-        translateY.value = withTiming(0, { duration: 300 });
-        // Only reset opacity if it's the spacer (which is handled by the main screen) or if local
-        if (!isSpacer) opacity.value = withTiming(1, { duration: 300 });
-      }
-    });
-
+// A single note card — no GestureDetector, just a plain TouchableOpacity so taps work reliably on Android
+function NoteCard({ note, index, isSpacer, scrollX, onSelect }: {
+  note: any;
+  index: number;
+  isSpacer?: boolean;
+  scrollX: Animated.SharedValue<number>;
+  onSelect: () => void;
+}) {
   const sysColorScheme = useSystemColorScheme();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
 
   const animatedStyle = useAnimatedStyle(() => {
-    const position = (scrollX.value / STEP) - index;
-    const scale = interpolate(
-      position,
-      [-1, 0, 1],
-      [0.9, 1, 0.9],
-      Extrapolation.CLAMP
-    );
-
+    const position = scrollX.value / STEP - index;
+    const scale = interpolate(position, [-1, 0, 1], [0.88, 1, 0.88], Extrapolation.CLAMP);
     return {
-      transform: [
-        { translateY: isSpacer ? 0 : translateY.value }, // The spacer shouldn't visually translate itself since the main screen does it!
-        { scale }
-      ],
-      opacity: isSpacer ? 0 : opacity.value, // Spacer is always invisible
+      transform: [{ scale }],
+      opacity: isSpacer ? 0 : 1,
     };
   });
 
   return (
-    <View style={{ width: CARD_W, height: CARD_H, zIndex: index, marginLeft: index > 0 ? -(CARD_W - STEP) : 0 }}>
-      <GestureDetector gesture={gesture}>
-        <Animated.View 
-          className={isSpacer ? "" : "shadow-2xl border"}
-          style={[
-            { 
-              width: CARD_W, 
-              height: CARD_H, 
-              borderRadius: 32, 
-              overflow: 'hidden', 
-              position: 'absolute', 
-              left: 0,
-              backgroundColor: isSpacer ? 'transparent' : (isDark ? '#1C1C1E' : '#FFFFFF'),
-              borderColor: isSpacer ? 'transparent' : (isDark ? '#2C2C2E' : '#E8E8EB')
-            }, 
-            animatedStyle
-          ]}
+    <Animated.View
+      style={[
+        {
+          width: CARD_W,
+          height: CARD_H,
+          marginLeft: index > 0 ? -(CARD_W - STEP) : 0,
+          zIndex: index,
+          borderRadius: 32,
+          overflow: 'hidden',
+          backgroundColor: isSpacer ? 'transparent' : (isDark ? '#1C1C1E' : '#FFFFFF'),
+          borderWidth: isSpacer ? 0 : 1,
+          borderColor: isDark ? '#2C2C2E' : '#E8E8EB',
+        },
+        animatedStyle,
+      ]}
+    >
+      {!isSpacer && (
+        <TouchableOpacity
+          style={{ flex: 1, padding: 24 }}
+          activeOpacity={0.85}
+          onPress={onSelect}
         >
-          {/* Card body — tappable to open note */}
-          {!isSpacer && (
-            <TouchableOpacity className="flex-1 p-6" activeOpacity={0.9} onPress={onSelect}>
-              <View className="flex-row items-center gap-2.5 mb-4 pb-4 border-b border-border">
-                <FileText size={18} color="#3b82f6" />
-                <Text className={`flex-1 text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`} numberOfLines={1}>{note.name || 'Untitled'}</Text>
-              </View>
+          {/* Note header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: isDark ? '#2C2C2E' : '#E8E8EB' }}>
+            <FileText size={18} color="#3b82f6" />
+            <Text
+              style={{ flex: 1, fontSize: 17, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827' }}
+              numberOfLines={1}
+            >
+              {note.name || 'Untitled'}
+            </Text>
+          </View>
 
-              <View className="flex-1">
-                <Text className={`text-sm leading-6 ${isDark ? 'text-[#8C8C91]' : 'text-gray-500'}`} numberOfLines={20}>
-                  {note.content_preview || ''}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
-        </Animated.View>
-      </GestureDetector>
-    </View>
+          {/* Note preview */}
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{ fontSize: 13, lineHeight: 22, color: isDark ? '#8C8C91' : '#6B7280' }}
+              numberOfLines={20}
+            >
+              {note.content_preview || ''}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
+    </Animated.View>
   );
 }
 
-export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpen, onClose, activeNoteId, onDismissNote, sharedScrollX, sharedTranslateY, sharedOpacity }: NoteStackViewerProps) {
+export default function NoteStackViewer({
+  notes,
+  onNoteSelect,
+  onCloseAll,
+  isOpen,
+  onClose,
+  activeNoteId,
+  onDismissNote,
+  sharedScrollX,
+  sharedTranslateY,
+  sharedOpacity,
+}: NoteStackViewerProps) {
   const [visibleNotes, setVisibleNotes] = useState<any[]>([]);
   const scrollRef = useRef<Animated.ScrollView>(null);
-  
+
   useEffect(() => {
     if (isOpen) {
-      // Reverse so oldest is on left (index 0) and newest active note is on right (index N-1)
+      // Reverse so oldest is on the left (index 0), newest active note is on the right (index N-1)
       setVisibleNotes([...notes].reverse());
-      
-      // Auto scroll to the active note when opened (which is the last one in the reversed array)
+
+      // Jump to the active (rightmost) note immediately on open
       setTimeout(() => {
         if (scrollRef.current && notes.length > 0) {
-          scrollRef.current.scrollTo({ x: (notes.length - 1) * STEP, animated: false });
-          sharedScrollX.value = (notes.length - 1) * STEP;
+          const targetX = (notes.length - 1) * STEP;
+          scrollRef.current.scrollTo({ x: targetX, animated: false });
+          sharedScrollX.value = targetX;
         }
       }, 50);
     }
   }, [isOpen, notes]);
-
-  const dismissNote = (id: string) => {
-    if (onDismissNote) onDismissNote(id);
-    else setVisibleNotes(prev => prev.filter(n => n.id.toString() !== id.toString()));
-  };
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -161,20 +145,20 @@ export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpe
 
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-      {/* Backdrop (Completely transparent so the background screen is perfectly visible) */}
-      <Animated.View 
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent' }}
-      >
-        <TouchableOpacity className="flex-1" activeOpacity={1} onPress={onClose} />
-      </Animated.View>
+      {/* Transparent backdrop — tapping empty space closes the switcher */}
+      <TouchableOpacity
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        activeOpacity={1}
+        onPress={onClose}
+      />
 
-      <Animated.View 
+      <Animated.View
         entering={ZoomIn.duration(300).springify()}
         exiting={FadeOut.duration(200)}
         style={{ flex: 1, justifyContent: 'center' }}
         pointerEvents="box-none"
       >
-        {/* Horizontal CoverFlow of cards */}
+        {/* CoverFlow Carousel */}
         <View style={{ height: CARD_H, width: '100%' }}>
           {visibleNotes.length > 0 && (
             <Animated.ScrollView
@@ -185,10 +169,14 @@ export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpe
               decelerationRate="fast"
               onScroll={scrollHandler}
               scrollEventThrottle={16}
-              contentContainerStyle={{ paddingLeft: SIDE_PADDING, paddingRight: RIGHT_PADDING, alignItems: 'center' }}
+              contentContainerStyle={{
+                paddingLeft: SIDE_PADDING,
+                paddingRight: SIDE_PADDING,
+                alignItems: 'center',
+              }}
             >
               {visibleNotes.map((item, index) => {
-                const isSpacer = item.id.toString() === activeNoteId;
+                const isSpacer = item.id.toString() === activeNoteId?.toString();
                 return (
                   <NoteCard
                     key={item.id.toString()}
@@ -196,10 +184,10 @@ export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpe
                     index={index}
                     isSpacer={isSpacer}
                     scrollX={sharedScrollX}
-                    sharedTranslateY={sharedTranslateY}
-                    sharedOpacity={sharedOpacity}
-                    onSelect={() => { onClose(); onNoteSelect(item.id.toString()); }}
-                    onDismiss={() => dismissNote(item.id.toString())}
+                    onSelect={() => {
+                      onClose();
+                      onNoteSelect(item.id.toString());
+                    }}
                   />
                 );
               })}
@@ -207,13 +195,13 @@ export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpe
           )}
         </View>
 
-        {/* Close All */}
-        <View className="absolute bottom-10 w-full items-center">
-          <TouchableOpacity 
-            className="py-3 px-6 bg-white rounded-full shadow-lg"
+        {/* Close All button */}
+        <View style={{ position: 'absolute', bottom: 40, width: '100%', alignItems: 'center' }}>
+          <TouchableOpacity
+            style={{ paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#FFFFFF', borderRadius: 999, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 6 }}
             onPress={() => { onClose(); onCloseAll?.(); }}
           >
-            <Text className="text-black text-xs font-bold tracking-widest">CLOSE ALL</Text>
+            <Text style={{ color: '#000', fontSize: 12, fontWeight: '700', letterSpacing: 2 }}>CLOSE ALL</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
