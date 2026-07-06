@@ -9,7 +9,8 @@ import Animated, {
   runOnJS,
   withSpring,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  FadeOut
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { FileText } from 'lucide-react-native';
@@ -112,7 +113,7 @@ export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpe
 
       <Animated.View 
         entering={ZoomIn.duration(300).springify()}
-        exiting={ZoomOut.duration(200)}
+        exiting={FadeOut.duration(200)}
         style={{ flex: 1 }}
         pointerEvents="box-none"
       >

@@ -306,7 +306,10 @@ export default function NoteReaderScreen() {
       </GestureDetector>
 
       <FilePickerModal 
-        notes={allFiles.filter(f => !openNoteIds.includes(f.id.toString()))}
+        notes={allFiles.filter(f => 
+          !openNoteIds.includes(f.id.toString()) && 
+          f.folder_id === fileData?.folder_id
+        )}
         isOpen={isFilePickerOpen}
         onClose={() => setIsFilePickerOpen(false)}
         activeNoteId={fileId as string}

@@ -76,15 +76,9 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
     const filename: string = att?.filename || '';
 
     // Build the file URL — real API returns it on att.url, fallback to constructed path
-    const BASE_URL = 'https://folio-g049.onrender.com/api';
-    let fileUrl: string | null = att?.url || (att?.id ? `${BASE_URL}/attachments/${att.id}/download` : null);
+    let fileUrl: string | null = att?.public_url || att?.url || null;
 
     let pdfSource: any = { uri: fileUrl, cache: true };
-
-    if (att?.id && String(att.id).match(/^[12345]$/) && filename.match(/\.pdf$/i)) {
-      const b64 = 'JVBERi0xLjcKCjEgMCBvYmogICUgZW50cnkgcG9pbnQKPDwKICAvVHlwZSAvQ2F0YWxvZwogIC9QYWdlcyAyIDAgUgo+PgplbmRvYmoKCjIgMCBvYmoKPDwKICAvVHlwZSAvUGFnZXMKICAvTWVkaWFCb3ggWyAwIDAgMjAwIDIwMCBdCiAgL0NvdW50IDEKICAvS2lkcyBbIDMgMCBSIF0KPj4KZW5kb2JqCgozIDAgb2JqCjw8CiAgL1R5cGUgL1BhZ2UKICAvUGFyZW50IDIgMCBSCiAgL1Jlc291cmNlcyA8PAogICAgL0ZvbnQgPDwKICAgICAgL0YxIDQgMCBSCj4+CiAgPj4KICAvQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCgo0IDAgb2JqCjw8CiAgL1R5cGUgL0ZvbnQKICAvU3VidHlwZSAvVHlwZTUKICAvQmFzZUZvbnQgL1RpbWVzLVJvbWFuCj4+CmVuZG9iagoKNSAwIG9iago8PAogIC9MZW5ndGggMzAKPj4Kc3RyZWFtCkJUCi9GMSAxOCBUZgoyMCA4NSBUZAooSGVsbG8gV29ybGQpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxMCAwMDAwMCBuIAowMDAwMDAwMDY5IDAwMDAwIG4gCjAwMDAwMDAxNTIgMDAwMDAgbiAKMDAwMDAwMDI1MyAwMDAwMCBuIAowMDAwMDAwMzUyIDAwMDAwIG4gCnRyYWlsZXIKPDwKICAvU2l6ZSA2CiAgL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQzNAolJUVPRgo=';
-      pdfSource = { uri: `data:application/pdf;base64,${b64}`, cache: true };
-    }
 
     if (!fileUrl) {
       return (
