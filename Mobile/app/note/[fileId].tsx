@@ -184,7 +184,11 @@ export default function NoteReaderScreen() {
       
       {/* The Unified NoteStackViewer handles rendering the entire UI via activeCardContent */}
       <NoteStackViewer 
-        notes={openNoteIds.map(id => allFiles.find(f => f.id.toString() === id)).filter(Boolean)}
+        notes={openNoteIds.map(id => {
+          const f = allFiles.find(f => f.id.toString() === id);
+          if (!f) return null;
+          return { ...f, content: cache.get<string>(`note_${id}`) };
+        }).filter(Boolean)}
         isOpen={isNoteSwitcherOpen}
         onClose={() => setIsNoteSwitcherOpen(false)}
         activeNoteId={fileId as string}

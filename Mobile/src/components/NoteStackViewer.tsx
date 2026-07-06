@@ -72,11 +72,11 @@ function NoteCard({
             overflow: 'hidden',
         }}
       >
-        <View style={{ flex: 1, paddingTop: 60, paddingHorizontal: 20 }}>
+        <View style={{ flex: 1, paddingTop: 100, paddingHorizontal: 24 }}>
           {/* ── Dismiss X button (inside scaled card) ── */}
           <TouchableOpacity
             style={{
-              position: 'absolute', top: 50, right: 20, zIndex: 10,
+              position: 'absolute', top: 32, right: 24, zIndex: 10,
               width: 40, height: 40, borderRadius: 20,
               backgroundColor: isDark ? 'rgba(58,58,60,0.8)' : 'rgba(224,224,224,0.8)',
               alignItems: 'center', justifyContent: 'center',
@@ -87,13 +87,13 @@ function NoteCard({
             <X size={20} color={isDark ? '#FFF' : '#555'} />
           </TouchableOpacity>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 12, borderBottomWidth: 1, borderColor: isDark ? '#2C2C2E' : '#E8E8EB' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 16, borderBottomWidth: 1, borderColor: isDark ? '#2C2C2E' : '#E8E8EB' }}>
             <FileText size={16} color="#3b82f6" />
-            <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: isDark ? '#FFF' : '#111' }} numberOfLines={1}>
+            <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: isDark ? '#FFF' : '#111' }} numberOfLines={1}>
               {note.name || 'Untitled'}
             </Text>
           </View>
-          <Text style={{ marginTop: 12, fontSize: 14, color: isDark ? '#888' : '#666' }} numberOfLines={15}>
+          <Text style={{ marginTop: 16, fontSize: 14, lineHeight: 22, color: isDark ? '#888' : '#666' }} numberOfLines={15}>
              {note.content_preview || note.content || "No content..."}
           </Text>
         </View>
