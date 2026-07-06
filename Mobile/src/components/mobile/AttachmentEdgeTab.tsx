@@ -24,6 +24,7 @@ interface AttachmentEdgeTabProps {
 export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChangeAttachment }: AttachmentEdgeTabProps) {
   const [isFullScreen, setIsFullScreen] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
   
   const { theme } = useThemeStore();
   const sysColorScheme = useSystemColorScheme();
@@ -35,6 +36,7 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
     if (isOpen) {
       setIsMounted(true);
       setIsFullScreen(true);
+      setPdfError(false);
     } else {
       const t = setTimeout(() => setIsMounted(false), 300);
       return () => clearTimeout(t);
@@ -97,13 +99,33 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
     }
     
     if (filename.match(/\.pdf$/i)) {
+      if (pdfError) {
+        return (
+          <View className="flex-1 justify-center items-center p-6 bg-card">
+            <FileText size={48} color="#ef4444" />
+            <Text className="text-foreground text-lg font-semibold mt-4 text-center">
+              The built-in PDF viewer encountered an error on your device.
+            </Text>
+            <TouchableOpacity 
+              className="mt-6 px-6 py-3 bg-primary rounded-full"
+              onPress={() => openWithFileViewer(fileUrl as string)}
+            >
+              <Text className="text-primary-foreground font-semibold">Open in Browser</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+
       return (
         <View className={`flex-1 w-full ${isDark ? 'bg-background' : 'bg-muted'}`}>
           <Pdf
             source={pdfSource}
             onLoadComplete={(numberOfPages,filePath) => {}}
             onPageChanged={(page,numberOfPages) => {}}
-            onError={(error) => { console.log(error); }}
+            onError={(error) => { 
+              console.log(error); 
+              setPdfError(true);
+            }}
             onPressLink={(uri) => {}}
             trustAllCerts={false}
             style={{ flex: 1, backgroundColor: isDark ? '#151516' : '#F5F5F7' }}
