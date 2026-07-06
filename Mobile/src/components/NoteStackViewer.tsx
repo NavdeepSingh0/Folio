@@ -241,7 +241,7 @@ export default function NoteStackViewer({
           </Animated.ScrollView>
 
           {/* Close All */}
-          <View style={{ position: 'absolute', bottom: 64, width: '100%', alignItems: 'center' }}>
+          <View style={{ position: 'absolute', bottom: 44, width: '100%', alignItems: 'center' }}>
             <TouchableOpacity
               style={{
                 paddingVertical: 13, paddingHorizontal: 32,
