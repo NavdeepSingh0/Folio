@@ -12,6 +12,7 @@ import { FileText, Image as ImageIcon, Code, File, ArrowLeft, Settings, Papercli
 import Pdf from 'react-native-pdf';
 import { WebView } from 'react-native-webview';
 import { cache } from '../../cache';
+import ReactNativeBlobUtil from 'react-native-blob-util';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -26,7 +27,7 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
   const [isFullScreen, setIsFullScreen] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
   const [pdfError, setPdfError] = useState(false);
-  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const [localPdfPath, setLocalPdfPath] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   
   const { theme } = useThemeStore();
@@ -49,22 +50,25 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
         let url = attachment.public_url || attachment.url || null;
         if (url) {
           url = url.split('?')[0];
-          setPdfBase64(null);
+          setLocalPdfPath(null);
           setPdfError(false);
           setPdfLoading(true);
 
-          fetch(url)
-            .then(res => res.blob())
-            .then(blob => {
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                setPdfBase64(reader.result as string);
-                setPdfLoading(false);
-              };
-              reader.readAsDataURL(blob);
+          const dirs = ReactNativeBlobUtil.fs.dirs;
+          const localPath = `${dirs.CacheDir}/temp_${attachment.id || 'pdf'}.pdf`;
+
+          ReactNativeBlobUtil.config({
+            fileCache: true,
+            path: localPath,
+            overwrite: true,
+          })
+            .fetch('GET', url)
+            .then((res) => {
+              setLocalPdfPath(`file://${res.path()}`);
+              setPdfLoading(false);
             })
             .catch(err => {
-              console.error("Base64 fetch error", err);
+              console.error("Local download error", err);
               setPdfError(true);
               setPdfLoading(false);
             });
@@ -152,7 +156,7 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
         );
       }
 
-      if (pdfLoading || !pdfBase64) {
+      if (pdfLoading || !localPdfPath) {
         return (
           <View className={`flex-1 w-full justify-center items-center ${isDark ? 'bg-background' : 'bg-muted'}`}>
             <ActivityIndicator size="large" color="#ef4444" />
@@ -164,7 +168,7 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
       return (
         <View className={`flex-1 w-full ${isDark ? 'bg-background' : 'bg-muted'}`}>
           <Pdf
-            source={{ uri: pdfBase64, cache: false }}
+            source={{ uri: localPdfPath, cache: false }}
             page={savedPage}
             onLoadComplete={(numberOfPages,filePath) => {}}
             onPageChanged={(page,numberOfPages) => {
