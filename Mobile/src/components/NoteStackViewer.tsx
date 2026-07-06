@@ -34,12 +34,17 @@ interface NoteStackViewerProps {
   activeNoteId?: string;
   onDismissNote?: (id: string) => void;
   sharedScrollX: Animated.SharedValue<number>;
+  sharedTranslateY: Animated.SharedValue<number>;
+  sharedOpacity: Animated.SharedValue<number>;
 }
 
 // Single swipeable note card
-function NoteCard({ note, index, isSpacer, scrollX, onSelect, onDismiss }: { note: any; index: number; isSpacer?: boolean; scrollX: Animated.SharedValue<number>; onSelect: () => void; onDismiss: () => void }) {
-  const translateY = useSharedValue(0);
-  const opacity = useSharedValue(1);
+function NoteCard({ note, index, isSpacer, scrollX, sharedTranslateY, sharedOpacity, onSelect, onDismiss }: { note: any; index: number; isSpacer?: boolean; scrollX: Animated.SharedValue<number>; sharedTranslateY: Animated.SharedValue<number>; sharedOpacity: Animated.SharedValue<number>; onSelect: () => void; onDismiss: () => void }) {
+  const localTranslateY = useSharedValue(0);
+  const localOpacity = useSharedValue(1);
+
+  const translateY = isSpacer ? sharedTranslateY : localTranslateY;
+  const opacity = isSpacer ? sharedOpacity : localOpacity;
 
   const gesture = Gesture.Pan()
     .onUpdate((e) => {
@@ -54,8 +59,9 @@ function NoteCard({ note, index, isSpacer, scrollX, onSelect, onDismiss }: { not
         opacity.value = withTiming(0, { duration: 200 });
         runOnJS(onDismiss)();
       } else {
-        translateY.value = withSpring(0, { damping: 15, stiffness: 200 });
-        opacity.value = withSpring(1);
+        translateY.value = withTiming(0, { duration: 300 });
+        // Only reset opacity if it's the spacer (which is handled by the main screen) or if local
+        if (!isSpacer) opacity.value = withTiming(1, { duration: 300 });
       }
     });
 
@@ -74,10 +80,10 @@ function NoteCard({ note, index, isSpacer, scrollX, onSelect, onDismiss }: { not
 
     return {
       transform: [
-        { translateY: translateY.value },
+        { translateY: isSpacer ? 0 : translateY.value }, // The spacer shouldn't visually translate itself since the main screen does it!
         { scale }
       ],
-      opacity: isSpacer ? 0 : opacity.value, // Spacer is invisible so the background screen shows through!
+      opacity: isSpacer ? 0 : opacity.value, // Spacer is always invisible
     };
   });
 
@@ -121,7 +127,7 @@ function NoteCard({ note, index, isSpacer, scrollX, onSelect, onDismiss }: { not
   );
 }
 
-export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpen, onClose, activeNoteId, onDismissNote, sharedScrollX }: NoteStackViewerProps) {
+export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpen, onClose, activeNoteId, onDismissNote, sharedScrollX, sharedTranslateY, sharedOpacity }: NoteStackViewerProps) {
   const [visibleNotes, setVisibleNotes] = useState<any[]>([]);
   const scrollRef = useRef<Animated.ScrollView>(null);
   
@@ -190,6 +196,8 @@ export default function NoteStackViewer({ notes, onNoteSelect, onCloseAll, isOpe
                     index={index}
                     isSpacer={isSpacer}
                     scrollX={sharedScrollX}
+                    sharedTranslateY={sharedTranslateY}
+                    sharedOpacity={sharedOpacity}
                     onSelect={() => { onClose(); onNoteSelect(item.id.toString()); }}
                     onDismiss={() => dismissNote(item.id.toString())}
                   />

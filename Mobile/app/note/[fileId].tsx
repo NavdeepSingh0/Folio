@@ -246,8 +246,31 @@ export default function NoteReaderScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#E5E5E5' }}>
-      <GestureDetector gesture={gesture}>
-        <Animated.View style={[{ flex: 1, backgroundColor: isDark ? '#121212' : '#FFFFFF' }, animatedScreenStyle]}>
+      
+      {/* 1. Carousel renders BEHIND the active screen */}
+      <NoteStackViewer 
+        notes={openNoteIds.map(id => allFiles.find(f => f.id.toString() === id)).filter(Boolean)}
+        isOpen={isNoteSwitcherOpen}
+        onClose={() => setIsNoteSwitcherOpen(false)}
+        activeNoteId={fileId as string}
+        sharedScrollX={sharedScrollX}
+        sharedTranslateY={screenTranslateY}
+        sharedOpacity={opacity}
+        onNoteSelect={(id) => {
+          setIsNoteSwitcherOpen(false);
+          router.setParams({ fileId: id });
+        }}
+        onDismissNote={handleDismissTab}
+        onCloseAll={() => {
+          setIsNoteSwitcherOpen(false);
+          router.back();
+        }}
+      />
+
+      {/* 2. Active Screen is ON TOP. When the switcher opens, pointerEvents='none' allows touches to pass through to the carousel! */}
+      <View style={{ flex: 1 }} pointerEvents={isNoteSwitcherOpen ? 'none' : 'auto'}>
+        <GestureDetector gesture={gesture}>
+          <Animated.View style={[{ flex: 1, backgroundColor: isDark ? '#121212' : '#FFFFFF' }, animatedScreenStyle]}>
           <SafeAreaView className="flex-1" edges={['top']}>
           {/* Title Bar — icons always visible */}
           <View className="flex-row items-center px-1 py-2.5 border-b border-border bg-background">
@@ -355,22 +378,7 @@ export default function NoteReaderScreen() {
         }}
       />
 
-      <NoteStackViewer 
-        notes={openNoteIds.map(id => allFiles.find(f => f.id.toString() === id)).filter(Boolean)}
-        isOpen={isNoteSwitcherOpen}
-        onClose={() => setIsNoteSwitcherOpen(false)}
-        activeNoteId={fileId as string}
-        sharedScrollX={sharedScrollX}
-        onNoteSelect={(id) => {
-          setIsNoteSwitcherOpen(false);
-          router.setParams({ fileId: id });
-        }}
-        onDismissNote={handleDismissTab}
-        onCloseAll={() => {
-          setIsNoteSwitcherOpen(false);
-          router.back();
-        }}
-      />
+      </View>
     </View>
   );
 }

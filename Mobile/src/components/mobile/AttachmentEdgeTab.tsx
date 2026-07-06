@@ -53,17 +53,11 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
           setPdfError(false);
           setPdfLoading(true);
 
-          const dirs = ReactNativeBlobUtil.fs.dirs;
-          const localPath = `${dirs.CacheDir}/temp_${attachment.id || 'pdf'}.pdf`;
-
-          ReactNativeBlobUtil.config({
-            fileCache: true,
-            path: localPath,
-            overwrite: true,
-          })
-            .fetch('GET', url)
+          // Fetch directly into base64 memory to avoid file system permission/interruption errors
+          ReactNativeBlobUtil.fetch('GET', url)
             .then((res) => {
-              setLocalPdfPath(`file://${res.path()}`);
+              const base64Str = res.base64();
+              setLocalPdfPath(`data:application/pdf;base64,${base64Str}`);
               setPdfLoading(false);
             })
             .catch(err => {
