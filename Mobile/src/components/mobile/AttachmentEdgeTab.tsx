@@ -11,6 +11,7 @@ import Animated, {
 import { FileText, Image as ImageIcon, Code, File, ArrowLeft, Settings, Paperclip } from 'lucide-react-native';
 import Pdf from 'react-native-pdf';
 import { WebView } from 'react-native-webview';
+import { cache } from '../../cache';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -25,6 +26,7 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
   const [isFullScreen, setIsFullScreen] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
   const [pdfError, setPdfError] = useState(false);
+  const [savedPage, setSavedPage] = useState<number>(1);
   
   const { theme } = useThemeStore();
   const sysColorScheme = useSystemColorScheme();
@@ -37,6 +39,10 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
       setIsMounted(true);
       setIsFullScreen(true);
       setPdfError(false);
+      if (attachment?.id) {
+        const p = cache.getOfflineFallback<number>(`pdf_page_${attachment.id}`);
+        setSavedPage(p || 1);
+      }
     } else {
       const t = setTimeout(() => setIsMounted(false), 300);
       return () => clearTimeout(t);
@@ -121,8 +127,13 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
         <View className={`flex-1 w-full ${isDark ? 'bg-background' : 'bg-muted'}`}>
           <Pdf
             source={{ uri: fileUrl, cache: false }}
+            page={savedPage}
             onLoadComplete={(numberOfPages,filePath) => {}}
-            onPageChanged={(page,numberOfPages) => {}}
+            onPageChanged={(page,numberOfPages) => {
+              if (att?.id) {
+                cache.set(`pdf_page_${att.id}`, page);
+              }
+            }}
             onError={(error) => { 
               console.log(error); 
               setPdfError(true);
