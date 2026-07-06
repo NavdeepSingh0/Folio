@@ -154,7 +154,7 @@ export default function HomeScreen() {
                         <Folder size={22} color={iconColor} />
                       </View>
                       <Text className="text-foreground font-medium text-base mb-1" numberOfLines={1}>{folder.name}</Text>
-                      <Text className="text-muted-foreground text-sm">{folder.file_count ?? 0} notes</Text>
+                      <Text className="text-muted-foreground text-sm">{folder.file_count ?? folder.notes_count ?? 0} notes</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>

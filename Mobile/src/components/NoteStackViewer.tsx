@@ -105,7 +105,6 @@ function NoteCard({
           ]}
         >
         <View style={{ flex: 1, backgroundColor: isDark ? '#121212' : '#FFFFFF' }}>
-          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: isDark ? '#2C2C2E' : '#E8E8EB', backgroundColor: isDark ? '#121212' : '#FFFFFF' }}>
               <View style={{ padding: 8 }}>
                 <ArrowLeft size={24} color={iconColor} />
@@ -134,7 +133,6 @@ function NoteCard({
                 </View>
               )}
             </View>
-          </SafeAreaView>
         </View>
       </Animated.View>
       </GestureDetector>

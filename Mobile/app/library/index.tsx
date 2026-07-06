@@ -33,6 +33,7 @@ function LibrarySkeleton() {
 }
 
 export default function LibraryScreen() {
+  const router = useRouter();
   const [folders, setFolders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
