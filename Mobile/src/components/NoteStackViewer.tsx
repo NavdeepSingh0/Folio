@@ -249,6 +249,7 @@ export default function NoteStackViewer({
           }}
         >
           {orderedNotes.map((note, index) => {
+            return (
               <NoteCard
                 key={note.id.toString()}
                 note={note}
