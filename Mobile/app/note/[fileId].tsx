@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, TouchableOpacity, TextInput, Dimensions, useColorScheme as useSystemColorScheme
 } from 'react-native';
@@ -57,7 +57,7 @@ export default function NoteReaderScreen() {
   const [attachments, setAttachments] = useState<any[]>([]);
 
   const setScrollPosition = useScrollStore(s => s.setScrollPosition);
-  const initialScrollY = useScrollStore(s => s.positions[fileId as string]) || 0;
+  const initialScrollY = useRef(useScrollStore.getState().positions[fileId as string] || 0).current;
 
   // Search
   const [isSearchOpen, setIsSearchOpen] = useState(false);
