@@ -17,6 +17,7 @@ import AttachmentEdgeTab from '../../src/components/mobile/AttachmentEdgeTab';
 import NoteStackViewer, { STEP, CARD_W } from '../../src/components/NoteStackViewer';
 import FilePickerModal from '../../src/components/FilePickerModal';
 import { useAuthStore } from '../../src/store/authStore';
+import { useScrollStore } from '../../src/store/scrollStore';
 
 // Skeleton blocks
 function SkeletonBlock({ width, height, className }: { width: number | string; height: number; className?: string }) {
@@ -54,6 +55,9 @@ export default function NoteReaderScreen() {
   const [allFiles, setAllFiles] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
+
+  const setScrollPosition = useScrollStore(s => s.setScrollPosition);
+  const initialScrollY = useScrollStore(s => s.positions[fileId as string]) || 0;
 
   // Search
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -263,7 +267,13 @@ export default function NoteReaderScreen() {
                   <NoteReaderSkeleton />
                 ) : (
                   <Animated.View style={{ flex: 1 }} entering={FadeIn.duration(300)}>
-                    <MobileMarkdown content={content} searchQuery={searchQuery} searchTrigger={searchTrigger} />
+                    <MobileMarkdown 
+                      content={content} 
+                      searchQuery={searchQuery} 
+                      searchTrigger={searchTrigger}
+                      initialScrollY={initialScrollY}
+                      onScroll={(y) => setScrollPosition(fileId as string, y)}
+                    />
                   </Animated.View>
                 )}
               </View>

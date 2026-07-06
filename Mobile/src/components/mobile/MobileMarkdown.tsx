@@ -7,9 +7,11 @@ interface MobileMarkdownProps {
   content: string;
   searchQuery?: string;
   searchTrigger?: number;
+  initialScrollY?: number;
+  onScroll?: (y: number) => void;
 }
 
-export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0 }: MobileMarkdownProps) {
+export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScrollY = 0, onScroll }: MobileMarkdownProps) {
   const webViewRef = useRef<WebView>(null);
   const { theme } = useThemeStore();
   const sysColorScheme = useSystemColorScheme();
@@ -56,8 +58,20 @@ export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0
       <!-- Marked.js + KaTeX extension -->
       <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
       <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension/lib/index.umd.js"></script>
+      <!-- Scroll Sync Script -->
+      <script>
+        window.addEventListener('scroll', () => {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scroll', y: window.scrollY }));
+        });
+        window.onload = () => {
+          setTimeout(() => {
+            window.scrollTo(0, ${initialScrollY});
+          }, 50);
+        };
+      </script>
 
       <style>
+        ::-webkit-scrollbar { display: none; }
         body {
           background-color: ${isDark ? '#151516' : '#FAFAFC'} !important;
           padding: 16px;
@@ -128,9 +142,18 @@ export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0
         ref={webViewRef}
         source={{ html: htmlContent }}
         style={{ flex: 1, backgroundColor: 'transparent' }}
-        originWhitelist={['*']}
         scalesPageToFit={false}
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        onMessage={(event) => {
+          try {
+            const data = JSON.parse(event.nativeEvent.data);
+            if (data.type === 'scroll' && onScroll) {
+              onScroll(data.y);
+            }
+          } catch (e) {}
+        }}
+        originWhitelist={['*']}
         startInLoadingState={true}
         renderLoading={() => (
           <View className="absolute inset-0 justify-center items-center bg-background">

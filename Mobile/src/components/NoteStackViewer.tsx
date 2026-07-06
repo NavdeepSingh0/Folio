@@ -16,6 +16,7 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { ArrowLeft, Plus, Search, Paperclip, MessageSquare } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MobileMarkdown from './mobile/MobileMarkdown';
+import { useScrollStore } from '../../src/store/scrollStore';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
@@ -58,6 +59,7 @@ function NoteCard({
   const iconColor = isDark ? '#E0E0E0' : '#121212';
 
   const translateY = useSharedValue(0);
+  const scrollY = useScrollStore(s => s.positions[note.id.toString()]) || 0;
 
   const panGesture = Gesture.Pan()
     .activeOffsetY([-10, 10]) // Require vertical movement to activate, allows horizontal scroll to pass through
@@ -124,7 +126,7 @@ function NoteCard({
             
             <View style={{ flex: 1 }} pointerEvents="none">
               {note.content ? (
-                <MobileMarkdown content={note.content} />
+                <MobileMarkdown content={note.content} initialScrollY={scrollY} />
               ) : (
                 <View style={{ padding: 24 }}>
                   <Text style={{ fontSize: 14, lineHeight: 22, color: isDark ? '#888' : '#666' }} numberOfLines={15}>
