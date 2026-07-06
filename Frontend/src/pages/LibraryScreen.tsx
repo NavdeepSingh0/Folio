@@ -3,12 +3,13 @@ import { Search, Folder, FileText, Pin, MoreVertical, Plus, Edit2, Check, X, Che
 import { AppLayout } from "../components/AppLayout";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import { cache } from "../lib/cache";
 
 export function LibraryScreen() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [pinnedFolders, setPinnedFolders] = useState<string[]>([]);
-  const [folders, setFolders] = useState<any[]>([]);
-  const [files, setFiles] = useState<any[]>([]);
+  const [pinnedFolders, setPinnedFolders] = useState<string[]>(() => cache.get<string[]>('library_pinned') || []);
+  const [folders, setFolders] = useState<any[]>(() => cache.get<any[]>('library_folders') || []);
+  const [files, setFiles] = useState<any[]>(() => cache.get<any[]>('library_files_unassigned') || []);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   
@@ -19,11 +20,17 @@ export function LibraryScreen() {
   const [activeFolder, setActiveFolder] = useState<any>(null);
 
   useEffect(() => {
+    const cacheKeyFiles = activeFolder ? `library_files_${activeFolder.id}` : 'library_files_unassigned';
+    const cachedFiles = cache.get<any[]>(cacheKeyFiles);
+    if (cachedFiles) setFiles(cachedFiles);
+    
     loadData();
   }, [activeFolder]);
 
   const loadData = async () => {
     try {
+      const cacheKeyFiles = activeFolder ? `library_files_${activeFolder.id}` : 'library_files_unassigned';
+      
       const [foldersData, filesData] = await Promise.all([
         api.getFolders(),
         activeFolder ? api.getFilesByFolder(activeFolder.id) : api.getUnassignedFiles()
@@ -42,8 +49,14 @@ export function LibraryScreen() {
       }
 
       setFolders(foldersData);
+      cache.set('library_folders', foldersData);
+
       setFiles(filesData);
-      setPinnedFolders(foldersData.filter((f: any) => f.is_pinned).map((f: any) => f.name));
+      cache.set(cacheKeyFiles, filesData);
+
+      const pinned = foldersData.filter((f: any) => f.is_pinned).map((f: any) => f.name);
+      setPinnedFolders(pinned);
+      cache.set('library_pinned', pinned);
     } catch (error) {
       console.error("Failed to load library data:", error);
     } finally {

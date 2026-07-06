@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Search, Folder, FileText, Clock, TrendingUp, Calendar, ChevronRight, History, Activity } from "lucide-react";
 import { AppLayout } from "../components/AppLayout";
 import { api } from "../api";
+import { cache } from "../lib/cache";
 
 export function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeWidget, setActiveWidget] = useState(0);
-  const [pinnedFolders, setPinnedFolders] = useState<any[]>([]);
-  const [recentNotes, setRecentNotes] = useState<any[]>([]);
+  const [pinnedFolders, setPinnedFolders] = useState<any[]>(() => cache.get<any[]>('home_pinned') || []);
+  const [recentNotes, setRecentNotes] = useState<any[]>(() => cache.get<any[]>('home_recent') || []);
 
 
   useEffect(() => {
@@ -21,10 +22,14 @@ export function Home() {
   const loadDashboardData = async () => {
     try {
       const folders = await api.getFolders();
-      setPinnedFolders(folders.filter((f: any) => f.is_pinned));
+      const pinned = folders.filter((f: any) => f.is_pinned);
+      setPinnedFolders(pinned);
+      cache.set('home_pinned', pinned);
 
       const files = await api.getAllFiles();
-      setRecentNotes(files.slice(0, 6)); // Top 6 most recent files
+      const recent = files.slice(0, 6); // Top 6 most recent files
+      setRecentNotes(recent);
+      cache.set('home_recent', recent);
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
     }

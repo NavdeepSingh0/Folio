@@ -4,6 +4,7 @@ import { MessageSquare, Paperclip, Send, Minimize2, Edit, Edit2, Eye, Info, X, F
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api";
+import { cache } from "../lib/cache";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useSearchParams } from "react-router-dom";
 
@@ -75,20 +76,37 @@ export function StudyScreen() {
   // Load File Data
   useEffect(() => {
     if (fileId) {
-      setIsLoading(true);
+      // 1. Instant Cache Load
+      const cachedFile = cache.get<any>(`study_file_${fileId}`);
+      if (cachedFile) {
+        setFileData(cachedFile);
+        setEditNameValue(cachedFile.name || "");
+        setMarkdown(cachedFile.markdown_content || "No content extracted.");
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
+      }
+
+      const cachedAttachments = cache.get<any[]>(`study_attachments_${fileId}`);
+      if (cachedAttachments) {
+        setPanelAttachments(cachedAttachments);
+      }
+
+      // 2. Background Revalidation
       api.getFile(fileId).then(data => {
         setFileData(data);
         setEditNameValue(data.name || "");
         setMarkdown(data.markdown_content || "No content extracted.");
+        cache.set(`study_file_${fileId}`, data);
         setIsLoading(false);
       }).catch(err => {
         console.error("Failed to load file", err);
         setMarkdown("Failed to load file data.");
         setIsLoading(false);
       });
-      
       api.getAttachments(fileId).then(data => {
         setPanelAttachments(data);
+        cache.set(`study_attachments_${fileId}`, data);
       }).catch(err => {
         console.error("Failed to load attachments", err);
       });
