@@ -38,6 +38,8 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedFolders, setPinnedFolders] = useState<any[]>([]);
   const [recentFiles, setRecentFiles] = useState<any[]>([]);
+  const [allFolders, setAllFolders] = useState<any[]>([]);
+  const [allFiles, setAllFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [username, setUsername] = useState('Alex');
@@ -67,9 +69,11 @@ export default function HomeScreen() {
       ]);
       const pinned = folders.filter((f: any) => f.is_pinned);
       const recent = files.slice(0, 6);
-      cache.set(cacheKey, { pinned, recent });
+      cache.set(cacheKey, { pinned, recent, folders, files });
       setPinnedFolders(pinned);
       setRecentFiles(recent);
+      setAllFolders(folders);
+      setAllFiles(files);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       // OFFLINE FALLBACK
@@ -77,6 +81,8 @@ export default function HomeScreen() {
       if (fallback) {
         setPinnedFolders(fallback.pinned);
         setRecentFiles(fallback.recent);
+        setAllFolders(fallback.folders || []);
+        setAllFiles(fallback.files || []);
       }
     } finally {
       setLoading(false);
@@ -101,6 +107,20 @@ export default function HomeScreen() {
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  const normalizedQuery = searchQuery.toLowerCase().trim();
+  const searchResultsFolders = normalizedQuery 
+    ? allFolders.filter(f => f.name?.toLowerCase().includes(normalizedQuery))
+    : [];
+  
+  const searchResultsFiles = normalizedQuery
+    ? allFiles.filter(f => 
+        f.name?.toLowerCase().includes(normalizedQuery) || 
+        f.content_preview?.toLowerCase().includes(normalizedQuery) ||
+        f.content?.toLowerCase().includes(normalizedQuery) ||
+        (f.attachments && f.attachments.some((a: any) => a.name?.toLowerCase().includes(normalizedQuery)))
+      )
+    : [];
 
   return (
     <>
@@ -138,6 +158,67 @@ export default function HomeScreen() {
               </View>
             </Animated.View>
 
+            {normalizedQuery.length > 0 ? (
+              <Animated.View entering={FadeInDown.duration(400).delay(300)} className="mb-8">
+                {searchResultsFolders.length > 0 && (
+                  <View className="mb-6">
+                    <Text className="text-foreground font-semibold text-lg mb-3">Folders</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16 }}>
+                      {searchResultsFolders.map((folder) => (
+                        <TouchableOpacity
+                          key={folder.id}
+                          className="bg-card w-[140px] p-4 rounded-2xl border border-border"
+                          activeOpacity={0.7}
+                          onPress={() => router.push(`/library/${folder.id}`)}
+                        >
+                          <View className="bg-primary/5 w-10 h-10 rounded-full items-center justify-center mb-4">
+                            <Folder size={22} color={iconColor} />
+                          </View>
+                          <Text className="text-foreground font-medium text-base mb-1" numberOfLines={1}>{folder.name}</Text>
+                          <Text className="text-muted-foreground text-sm">{folder.file_count ?? folder.notes_count ?? 0} notes</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {searchResultsFiles.length > 0 && (
+                  <View className="gap-4">
+                    <Text className="text-foreground font-semibold text-lg mb-3">Notes & Attachments</Text>
+                    {searchResultsFiles.map((file) => (
+                      <TouchableOpacity
+                        key={file.id}
+                        className="flex-row items-center bg-card p-5 rounded-3xl border border-border shadow-sm"
+                        activeOpacity={0.6}
+                        onPress={() => router.push(`/note/${file.id}`)}
+                      >
+                        <View className="w-12 h-12 bg-blue-500/10 rounded-2xl items-center justify-center mr-4">
+                          <FileText size={22} color="#3b82f6" />
+                        </View>
+                        <View className="flex-1 justify-center">
+                          <Text className="text-foreground font-semibold text-[17px] mb-1" numberOfLines={1}>{file.name}</Text>
+                          <Text className="text-muted-foreground text-[14px]" numberOfLines={1}>
+                            {file.content_preview || file.content || "Tap to view note"}
+                          </Text>
+                        </View>
+                        <View className="w-8 h-8 rounded-full bg-muted justify-center items-center">
+                          <ArrowRight size={16} color={iconColor} />
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {searchResultsFolders.length === 0 && searchResultsFiles.length === 0 && (
+                  <View className="items-center justify-center py-12">
+                    <Search size={48} color={mutedIconColor} />
+                    <Text className="text-foreground text-lg font-semibold mt-4">No results found</Text>
+                    <Text className="text-muted-foreground mt-2 text-center">Try a different search term</Text>
+                  </View>
+                )}
+              </Animated.View>
+            ) : (
+              <>
             {/* Pinned Folders */}
             {pinnedFolders.length > 0 && (
               <Animated.View entering={FadeInDown.duration(400).delay(300)} className="mb-8">
@@ -198,8 +279,12 @@ export default function HomeScreen() {
             {pinnedFolders.length === 0 && recentFiles.length === 0 && (
               <View className="flex-1 justify-center items-center py-10">
                 <Text className="text-foreground text-xl font-semibold mb-2">Ready to study?</Text>
-                <Text className="text-muted-foreground text-center">Open the sidebar to browse your library and add notes.</Text>
+                <Text className="text-muted-foreground text-center px-8">
+                  Create your first folder and note in the Library to get started.
+                </Text>
               </View>
+            )}
+            </>
             )}
           </ScrollView>
         )}
