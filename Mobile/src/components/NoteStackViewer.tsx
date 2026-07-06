@@ -59,14 +59,12 @@ interface Props {
 function NoteCard({
   note,
   index,
-  index,
   totalCards,
   scrollX,
   onSelect,
   onDismiss,
 }: {
   note: Note;
-  index: number;
   index: number;
   totalCards: number;
   scrollX: Animated.SharedValue<number>;
