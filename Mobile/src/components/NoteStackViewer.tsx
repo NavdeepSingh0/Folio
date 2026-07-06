@@ -180,14 +180,13 @@ export default function NoteStackViewer({
     switcherProgress.value = withTiming(isOpen ? 1 : 0, { duration: 300 });
   }, [isOpen]);
 
-  // When switcher opens, we need to ensure the scrollview is snapped to the active card
+  // We must always ensure the scrollview is snapped to the active card, 
+  // even if closed, so that when a new note is opened from the picker, 
+  // it is perfectly centered in the fullscreen view.
   useEffect(() => {
-    if (isOpen) {
-      const activeIndex = orderedNotes.findIndex(n => n.id.toString() === activeNoteId?.toString());
-      const targetX = Math.max(0, activeIndex) * STEP;
-      // We jump instantly to ensure the scale-down animation happens at the right scroll offset
-      scrollRef.current?.scrollTo({ x: targetX, animated: false });
-    }
+    const activeIndex = orderedNotes.findIndex(n => n.id.toString() === activeNoteId?.toString());
+    const targetX = Math.max(0, activeIndex) * STEP;
+    scrollRef.current?.scrollTo({ x: targetX, animated: false });
   }, [isOpen, activeNoteId, orderedNotes]);
 
   // Transparent backdrop style
