@@ -52,6 +52,7 @@ export default function NoteReaderScreen() {
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [allFiles, setAllFiles] = useState<any[]>([]);
+  const [folders, setFolders] = useState<any[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
 
   // Search
@@ -86,12 +87,14 @@ export default function NoteReaderScreen() {
     setLoading(true);
     const cacheKey = `note_${fileId}`;
     const filesKey = `all_files`;
+    const foldersKey = `library_folders`;
     const attKey = `attachments_${fileId}`;
 
     try {
       // Serve cached data instantly
       const cachedContent = cache.get<string>(cacheKey);
       const cachedFiles = cache.get<any[]>(filesKey);
+      const cachedFolders = cache.get<any[]>(foldersKey);
       const cachedAtts = cache.get<any[]>(attKey);
 
       if (cachedFiles) {
@@ -99,12 +102,14 @@ export default function NoteReaderScreen() {
         const f = cachedFiles.find((f: any) => f.id.toString() === fileId?.toString());
         if (f) setFileData(f);
       }
+      if (cachedFolders) setFolders(cachedFolders);
       if (cachedContent) { setContent(cachedContent); setLoading(false); }
       if (cachedAtts) setAttachments(cachedAtts);
 
       // Always fetch fresh in parallel
-      const [files, rawMarkdown, atts] = await Promise.all([
+      const [files, foldersData, rawMarkdown, atts] = await Promise.all([
         api.getAllFiles(),
+        api.getFolders().catch(() => []),
         api.getFileContent(fileId as string),
         api.getAttachments(fileId as string).catch(() => []),
       ]);
@@ -116,12 +121,14 @@ export default function NoteReaderScreen() {
       console.log('----------------------');
 
       cache.set(filesKey, files);
+      cache.set(foldersKey, foldersData);
       cache.set(cacheKey, rawMarkdown);
       cache.set(attKey, atts);
 
       const currentFile = files.find((f: any) => f.id.toString() === fileId?.toString());
       if (currentFile) setFileData(currentFile);
       setAllFiles(files);
+      setFolders(foldersData);
       setContent(rawMarkdown);
       setAttachments(atts || []);
     } catch (error) {
@@ -324,11 +331,8 @@ export default function NoteReaderScreen() {
       </GestureDetector>
 
       <FilePickerModal 
-        notes={allFiles.filter(f => {
-          if (openNoteIds.includes(f.id.toString())) return false;
-          if (!f.folder_id && !fileData?.folder_id) return true;
-          return String(f.folder_id) === String(fileData?.folder_id);
-        })}
+        notes={allFiles.filter(f => !openNoteIds.includes(f.id.toString()))}
+        folders={folders}
         isOpen={isFilePickerOpen}
         onClose={() => setIsFilePickerOpen(false)}
         activeNoteId={fileId as string}

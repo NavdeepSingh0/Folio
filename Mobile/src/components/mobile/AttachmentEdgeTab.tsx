@@ -26,6 +26,8 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
   const [isFullScreen, setIsFullScreen] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
   const [pdfError, setPdfError] = useState(false);
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
   
   const { theme } = useThemeStore();
   const sysColorScheme = useSystemColorScheme();
@@ -42,7 +44,34 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
     if (isOpen) {
       setIsMounted(true);
       setIsFullScreen(true);
-      setPdfError(false);
+      
+      if (attachment && attachment.filename?.match(/\.pdf$/i)) {
+        let url = attachment.public_url || attachment.url || null;
+        if (url) {
+          url = url.split('?')[0];
+          setPdfBase64(null);
+          setPdfError(false);
+          setPdfLoading(true);
+
+          fetch(url)
+            .then(res => res.blob())
+            .then(blob => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                setPdfBase64(reader.result as string);
+                setPdfLoading(false);
+              };
+              reader.readAsDataURL(blob);
+            })
+            .catch(err => {
+              console.error("Base64 fetch error", err);
+              setPdfError(true);
+              setPdfLoading(false);
+            });
+        }
+      } else {
+        setPdfError(false);
+      }
     } else {
       const t = setTimeout(() => setIsMounted(false), 300);
       return () => clearTimeout(t);
@@ -123,10 +152,19 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
         );
       }
 
+      if (pdfLoading || !pdfBase64) {
+        return (
+          <View className={`flex-1 w-full justify-center items-center ${isDark ? 'bg-background' : 'bg-muted'}`}>
+            <ActivityIndicator size="large" color="#ef4444" />
+            <Text className="mt-4 text-muted-foreground font-medium">Bypassing secure download...</Text>
+          </View>
+        );
+      }
+
       return (
         <View className={`flex-1 w-full ${isDark ? 'bg-background' : 'bg-muted'}`}>
           <Pdf
-            source={{ uri: fileUrl, cache: false }}
+            source={{ uri: pdfBase64, cache: false }}
             page={savedPage}
             onLoadComplete={(numberOfPages,filePath) => {}}
             onPageChanged={(page,numberOfPages) => {
