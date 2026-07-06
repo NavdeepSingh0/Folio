@@ -70,9 +70,11 @@ export default function NoteReaderScreen() {
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
 
   useEffect(() => {
-    if (fileId && !openNoteIds.includes(fileId as string)) {
-      setOpenNoteIds(prev => [fileId as string, ...prev]);
-    }
+    if (!fileId) return;
+    setOpenNoteIds(prev => {
+      const next = [fileId as string, ...prev.filter(id => id !== fileId)];
+      return next;
+    });
   }, [fileId]);
 
   const { initialized, session } = useAuthStore();
@@ -280,10 +282,6 @@ export default function NoteReaderScreen() {
         sharedOpacity={opacity}
         onNoteSelect={(id) => {
           setIsNoteSwitcherOpen(false);
-          setOpenNoteIds(prev => {
-            const next = prev.filter(nid => nid !== id);
-            return [id, ...next];
-          });
           router.setParams({ fileId: id });
         }}
         onDismissNote={handleDismissTab}
