@@ -21,7 +21,7 @@ import { runOnJS } from 'react-native-reanimated';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 // ─── Geometry ───────────────────────────────────────────────────────────────
-export const CARD_SCALE = 0.85;
+export const CARD_SCALE = 0.80;
 // The step is the physical layout distance between items in the ScrollView.
 export const STEP = SCREEN_W * CARD_SCALE + 16;
 // Padding to center the wrapper slot on the screen
@@ -134,6 +134,7 @@ function NoteCard({
           )}
         </View>
       </Animated.View>
+      </GestureDetector>
 
       {/* ── Invisible hit area for cards to select them ── */}
       <TouchableOpacity
