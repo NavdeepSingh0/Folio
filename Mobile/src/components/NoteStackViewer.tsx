@@ -13,7 +13,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useThemeStore } from '../../src/store/themeStore';
-import { FileText, X } from 'lucide-react-native';
+import { ArrowLeft, Plus, Search, Paperclip, MessageSquare } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MobileMarkdown from './mobile/MobileMarkdown';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -21,7 +22,7 @@ import { runOnJS } from 'react-native-reanimated';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 // ─── Geometry ───────────────────────────────────────────────────────────────
-export const CARD_SCALE = 0.80;
+export const CARD_SCALE = 0.75;
 // The step is the physical layout distance between items in the ScrollView.
 export const STEP = SCREEN_W * CARD_SCALE + 16;
 // Padding to center the wrapper slot on the screen
@@ -54,6 +55,7 @@ function NoteCard({
   const { theme } = useThemeStore();
   const sys = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sys === 'dark');
+  const iconColor = isDark ? '#E0E0E0' : '#121212';
 
   const translateY = useSharedValue(0);
 
@@ -102,36 +104,37 @@ function NoteCard({
             }))
           ]}
         >
-        <View style={{ flex: 1, paddingTop: 100, paddingHorizontal: 24 }}>
-          {/* ── Dismiss X button (inside scaled card) ── */}
-          <TouchableOpacity
-            style={{
-              position: 'absolute', top: 32, right: 24, zIndex: 10,
-              width: 40, height: 40, borderRadius: 20,
-              backgroundColor: isDark ? 'rgba(58,58,60,0.8)' : 'rgba(224,224,224,0.8)',
-              alignItems: 'center', justifyContent: 'center',
-            }}
-            onPress={onDismiss}
-            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          >
-            <X size={20} color={isDark ? '#FFF' : '#555'} />
-          </TouchableOpacity>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 16, borderBottomWidth: 1, borderColor: isDark ? '#2C2C2E' : '#E8E8EB' }}>
-            <FileText size={16} color="#3b82f6" />
-            <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: isDark ? '#FFF' : '#111' }} numberOfLines={1}>
-              {note.name || 'Untitled'}
-            </Text>
-          </View>
-          {note.content ? (
-            <View style={{ flex: 1, marginTop: 4, overflow: 'hidden' }} pointerEvents="none">
-              <MobileMarkdown content={note.content} />
+        <View style={{ flex: 1, backgroundColor: isDark ? '#121212' : '#FFFFFF' }}>
+          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: isDark ? '#2C2C2E' : '#E8E8EB', backgroundColor: isDark ? '#121212' : '#FFFFFF' }}>
+              <View style={{ padding: 8 }}>
+                <ArrowLeft size={24} color={iconColor} />
+              </View>
+              <View style={{ flex: 1, paddingHorizontal: 6, justifyContent: 'center' }}>
+                <Text style={{ color: isDark ? '#E0E0E0' : '#121212', fontSize: 17, fontWeight: '600' }} numberOfLines={1}>
+                  {note.name || 'Untitled'}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ padding: 8 }}><Plus size={22} color={iconColor} /></View>
+                <View style={{ padding: 8 }}><Search size={22} color={iconColor} /></View>
+                <View style={{ padding: 8 }}><Paperclip size={22} color={iconColor} /></View>
+                <View style={{ padding: 8 }}><MessageSquare size={22} color={iconColor} /></View>
+              </View>
             </View>
-          ) : (
-            <Text style={{ marginTop: 16, fontSize: 14, lineHeight: 22, color: isDark ? '#888' : '#666' }} numberOfLines={15}>
-               {note.content_preview || "No content..."}
-            </Text>
-          )}
+            
+            <View style={{ flex: 1 }} pointerEvents="none">
+              {note.content ? (
+                <MobileMarkdown content={note.content} />
+              ) : (
+                <View style={{ padding: 24 }}>
+                  <Text style={{ fontSize: 14, lineHeight: 22, color: isDark ? '#888' : '#666' }} numberOfLines={15}>
+                    {note.content_preview || "No content..."}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </SafeAreaView>
         </View>
       </Animated.View>
       </GestureDetector>
