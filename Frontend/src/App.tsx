@@ -8,17 +8,24 @@ import { SettingsScreen } from "./pages/SettingsScreen";
 import { KnowledgeBaseScreen } from "./pages/KnowledgeBaseScreen";
 import { StudyChatsScreen } from "./pages/StudyChatsScreen";
 
+import { AuthGuard } from "./components/AuthGuard";
+import { AuthScreen } from "./pages/AuthScreen";
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/library" element={<LibraryScreen />} />
-        <Route path="/study" element={<StudyScreen />} />
-        <Route path="/upload" element={<UploadScreen />} />
-        <Route path="/settings" element={<SettingsScreen />} />
-        <Route path="/knowledge-base" element={<KnowledgeBaseScreen />} />
-        <Route path="/chats" element={<StudyChatsScreen />} />
+        <Route path="/auth" element={<AuthScreen />} />
+        
+        <Route element={<AuthGuard />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/library" element={<LibraryScreen />} />
+          <Route path="/study" element={<StudyScreen />} />
+          <Route path="/upload" element={<UploadScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/knowledge-base" element={<KnowledgeBaseScreen />} />
+          <Route path="/chats" element={<StudyChatsScreen />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

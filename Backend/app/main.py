@@ -5,6 +5,7 @@ import uvicorn
 # Import our custom routers
 from app.api.library import router as library_router
 from app.api.upload import router as upload_router
+from app.api.auth import router as auth_router
 from app.models.database import engine, Base
 from app.models import schema
 
@@ -25,6 +26,7 @@ app.add_middleware(
 # Include API Routers
 app.include_router(library_router)
 app.include_router(upload_router)
+app.include_router(auth_router)
 
 @app.get("/")
 async def root():

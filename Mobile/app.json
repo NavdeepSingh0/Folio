@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Mobile",
+    "name": "Folio",
     "slug": "Mobile",
     "version": "1.0.0",
     "newArchEnabled": true,
@@ -23,10 +23,15 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "scheme": "studyforge",
     "extra": {
       "eas": {
         "projectId": "2253d1cc-d1a7-4e25-96b5-fa6795c30208"
       }
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar"
+    ]
   }
 }

@@ -9,15 +9,29 @@ from app.utils.supabase_client import supabase
 
 router = APIRouter(prefix="/api", tags=["Library"])
 
-# --- Helper to mock user ---
-def get_current_user_id(db: Session = Depends(get_db)):
-    # Mocking single user authentication for hackathon
-    user = db.query(schema.User).filter(schema.User.username == "demo_user").first()
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+security = HTTPBearer()
+
+def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    token = credentials.credentials
+    # Verify JWT with Supabase
+    auth_response = supabase.auth.get_user(token)
+    if not auth_response or not auth_response.user:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        
+    user_email = auth_response.user.email
+    # Find user by email in local DB, or create them if it's their first time syncing
+    user = db.query(schema.User).filter(schema.User.email == user_email).first()
     if not user:
-        user = schema.User(username="demo_user", email="demo@example.com")
+        user = schema.User(username=user_email.split('@')[0], email=user_email)
         db.add(user)
         db.commit()
         db.refresh(user)
+        
     return user.id
 
 
