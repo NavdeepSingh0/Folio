@@ -77,11 +77,11 @@ export const api = {
   getAllFiles: () => apiFetch(`${BASE_URL}/files`).then(res => res.json()),
   getFile: (id: string | number) => apiFetch(`${BASE_URL}/files/${id}`).then(res => res.json()),
   getFileContent: async (id: string | number) => {
-    const res = await apiFetch(`${BASE_URL}/files/${id}/content`);
+    const res = await apiFetch(`${BASE_URL}/files/${id}`);
     if (!res.ok) throw new Error('not found');
     const data = await res.json();
     if (typeof data === 'string') return data;
-    return data.content || data.markdown || data.text || '';
+    return data.markdown_content || data.content || data.markdown || data.text || '';
   },
   getFacts: () => apiFetch(`${BASE_URL}/facts`).then(res => res.json()),
   updateFile: (id: string | number, data: { name?: string, folder_id?: string | number | null }) =>
