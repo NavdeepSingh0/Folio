@@ -6,7 +6,7 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Plus, Paperclip, MessageSquare, Search, X } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withTiming, runOnJS, useDerivedValue } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withTiming, runOnJS, useDerivedValue, interpolate } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { api } from '../../src/api';
 import { cache } from '../../src/cache';
@@ -280,6 +280,10 @@ export default function NoteReaderScreen() {
         sharedOpacity={opacity}
         onNoteSelect={(id) => {
           setIsNoteSwitcherOpen(false);
+          setOpenNoteIds(prev => {
+            const next = prev.filter(nid => nid !== id);
+            return [id, ...next];
+          });
           router.setParams({ fileId: id });
         }}
         onDismissNote={handleDismissTab}
