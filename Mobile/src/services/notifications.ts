@@ -52,6 +52,17 @@ export async function setupLocalNotifications() {
   // Cancel previously scheduled notifications so we don't duplicate them on every app load
   await Notifications.cancelAllScheduledNotificationsAsync();
 
+  // TEST NOTIFICATION: Fire 5 seconds from now so the user can see it!
+  await Notifications.scheduleNotificationAsync({
+    content: { 
+      title: "Test Notification 🎉", 
+      body: "Notifications are working perfectly on your device!",
+      sound: true 
+    },
+    // @ts-ignore - Expo types for timeInterval trigger
+    trigger: { seconds: 5, type: 'timeInterval' },
+  });
+
   const now = new Date();
   
   // Schedule rotating reminders for the next 7 days
