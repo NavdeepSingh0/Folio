@@ -41,9 +41,9 @@ export function Home() {
 
         {/* Top Navbar for Home Screen */}
         <header className="absolute top-6 right-8 z-10">
-          <button className="text-[15px] font-medium text-primary hover:text-foreground transition-colors flex items-center gap-1 hover:underline underline-offset-4 decoration-border">
+          <a href="/StudyForge.apk" download className="text-[15px] font-medium text-primary hover:text-foreground transition-colors flex items-center gap-1 hover:underline underline-offset-4 decoration-border">
             Install App <span className="text-[13px] ml-0.5">↗</span>
-          </button>
+          </a>
         </header>
 
         {/* Hero Search Section (Fixed at top) */}
