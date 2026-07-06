@@ -259,9 +259,9 @@ export default function NoteReaderScreen() {
 
   const animatedScreenStyle = useAnimatedStyle(() => ({
     transform: [
-      { scale: animatedScreenScale.value }, 
+      { translateX: animatedScreenTranslateX.value },
       { translateY: screenTranslateY.value },
-      { translateX: animatedScreenTranslateX.value }
+      { scale: animatedScreenScale.value }
     ],
     borderRadius: animatedScreenBorderRadius.value,
     overflow: 'hidden',

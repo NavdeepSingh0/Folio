@@ -133,7 +133,7 @@ function NoteCard({
             shadowOffset: { width: 0, height: 8 },
             shadowOpacity: isSpacer ? 0 : 0.25,
             shadowRadius: 16,
-            elevation: isSpacer ? 0 : 8,
+            elevation: isSpacer ? 0 : index + 8,
           },
           cardStyle,
         ]}
