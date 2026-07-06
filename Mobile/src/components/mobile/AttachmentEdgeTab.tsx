@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, Image, ScrollView, Linking, useColorScheme as useSystemColorScheme, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, Image, ScrollView, Linking, useColorScheme as useSystemColorScheme, Platform, ActivityIndicator } from 'react-native';
 import { useThemeStore } from '../../store/themeStore';
 import Animated, { 
   useSharedValue, 
@@ -100,18 +100,19 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
     
     if (filename.match(/\.pdf$/i)) {
       if (pdfError) {
+        const googleDocsUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fileUrl as string)}`;
         return (
-          <View className="flex-1 justify-center items-center p-6 bg-card">
-            <FileText size={48} color="#ef4444" />
-            <Text className="text-foreground text-lg font-semibold mt-4 text-center">
-              The built-in PDF viewer encountered an error on your device.
-            </Text>
-            <TouchableOpacity 
-              className="mt-6 px-6 py-3 bg-primary rounded-full"
-              onPress={() => openWithFileViewer(fileUrl as string)}
-            >
-              <Text className="text-primary-foreground font-semibold">Open in Browser</Text>
-            </TouchableOpacity>
+          <View className={`flex-1 w-full ${isDark ? 'bg-background' : 'bg-muted'}`}>
+            <WebView 
+              source={{ uri: googleDocsUrl }} 
+              style={{ flex: 1, width: '100%' }} 
+              startInLoadingState={true}
+              renderLoading={() => (
+                <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center' }}>
+                  <ActivityIndicator size="large" color="#8b5cf6" />
+                </View>
+              )}
+            />
           </View>
         );
       }
