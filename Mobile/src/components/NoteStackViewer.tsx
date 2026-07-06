@@ -14,6 +14,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useThemeStore } from '../../src/store/themeStore';
 import { FileText, X } from 'lucide-react-native';
+import MobileMarkdown from './mobile/MobileMarkdown';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -52,26 +55,53 @@ function NoteCard({
   const sys = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sys === 'dark');
 
+  const translateY = useSharedValue(0);
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetY([-10, 10]) // Require vertical movement to activate, allows horizontal scroll to pass through
+    .onUpdate((e) => {
+      if (e.translationY < 0) {
+        translateY.value = e.translationY;
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY < -100 || e.velocityY < -800) {
+        translateY.value = withTiming(-SCREEN_H, { duration: 200 }, (finished) => {
+          if (finished) runOnJS(onDismiss)();
+        });
+      } else {
+        translateY.value = withTiming(0, { duration: 250 });
+      }
+    });
+
   return (
     <View style={{ width: STEP, height: SCREEN_H, justifyContent: 'center', alignItems: 'center' }}>
       {/* ── Visual card (literally screen sized, scaled down statically) ── */}
-      <View
-        style={{
-            width: SCREEN_W,
-            height: SCREEN_H,
-            backgroundColor: isDark ? '#1C1C1E' : '#F8F8F8',
-            borderWidth: 1,
-            borderColor: isDark ? '#333' : '#DDD',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.25,
-            shadowRadius: 16,
-            elevation: 5, 
-            transform: [{ scale: CARD_SCALE }],
-            borderRadius: 28,
-            overflow: 'hidden',
-        }}
-      >
+      <GestureDetector gesture={panGesture}>
+        <Animated.View
+          style={[
+            {
+              width: SCREEN_W,
+              height: SCREEN_H,
+              backgroundColor: isDark ? '#1C1C1E' : '#F8F8F8',
+              borderWidth: 1,
+              borderColor: isDark ? '#333' : '#DDD',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.25,
+              shadowRadius: 16,
+              elevation: 5, 
+              borderRadius: 28,
+              overflow: 'hidden',
+            },
+            useAnimatedStyle(() => ({
+              transform: [
+                { scale: CARD_SCALE },
+                { translateY: translateY.value }
+              ]
+            }))
+          ]}
+        >
         <View style={{ flex: 1, paddingTop: 100, paddingHorizontal: 24 }}>
           {/* ── Dismiss X button (inside scaled card) ── */}
           <TouchableOpacity
@@ -93,11 +123,17 @@ function NoteCard({
               {note.name || 'Untitled'}
             </Text>
           </View>
-          <Text style={{ marginTop: 16, fontSize: 14, lineHeight: 22, color: isDark ? '#888' : '#666' }} numberOfLines={15}>
-             {note.content_preview || note.content || "No content..."}
-          </Text>
+          {note.content ? (
+            <View style={{ flex: 1, marginTop: 4, overflow: 'hidden' }} pointerEvents="none">
+              <MobileMarkdown content={note.content} />
+            </View>
+          ) : (
+            <Text style={{ marginTop: 16, fontSize: 14, lineHeight: 22, color: isDark ? '#888' : '#666' }} numberOfLines={15}>
+               {note.content_preview || "No content..."}
+            </Text>
+          )}
         </View>
-      </View>
+      </Animated.View>
 
       {/* ── Invisible hit area for cards to select them ── */}
       <TouchableOpacity
@@ -203,7 +239,7 @@ export default function NoteStackViewer({
           </Animated.ScrollView>
 
           {/* Close All */}
-          <View style={{ position: 'absolute', bottom: 32, width: '100%', alignItems: 'center' }}>
+          <View style={{ position: 'absolute', bottom: 64, width: '100%', alignItems: 'center' }}>
             <TouchableOpacity
               style={{
                 paddingVertical: 13, paddingHorizontal: 32,
