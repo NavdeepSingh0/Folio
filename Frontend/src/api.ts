@@ -7,7 +7,16 @@ async function apiFetch(url: string, options: RequestInit = {}) {
     ...options.headers,
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   };
-  return fetch(url, { ...options, headers });
+  const res = await fetch(url, { ...options, headers });
+  if (!res.ok) {
+    let errMessage = 'Network response was not ok';
+    try {
+      const errData = await res.json();
+      errMessage = errData.detail || errMessage;
+    } catch {}
+    throw new Error(errMessage);
+  }
+  return res;
 }
 
 export const api = {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, Image, ScrollView, Linking, useColorScheme as useSystemColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, Image, ScrollView, Linking, useColorScheme as useSystemColorScheme, Platform } from 'react-native';
 import { useThemeStore } from '../../store/themeStore';
 import Animated, { 
   useSharedValue, 
@@ -102,7 +102,7 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
             onPageChanged={(page,numberOfPages) => {}}
             onError={(error) => { console.log(error); }}
             onPressLink={(uri) => {}}
-            trustAllCerts={false}
+            trustAllCerts={Platform.OS === 'ios' ? false : true}
             style={{ flex: 1, backgroundColor: isDark ? '#151516' : '#F5F5F7' }}
           />
         </View>
