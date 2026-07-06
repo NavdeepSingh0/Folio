@@ -77,6 +77,9 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
 
     // Build the file URL — real API returns it on att.url, fallback to constructed path
     let fileUrl: string | null = att?.public_url || att?.url || null;
+    if (fileUrl) {
+      fileUrl = fileUrl.split('?')[0];
+    }
 
     let pdfSource: any = { uri: fileUrl, cache: true };
 
