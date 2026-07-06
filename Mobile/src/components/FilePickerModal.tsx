@@ -53,7 +53,7 @@ export default function FilePickerModal({ notes, onNoteSelect, onCloseAll, isOpe
           <ScrollView className="flex-1 px-4 py-2">
             {visibleNotes.length === 0 ? (
               <View className="flex-1 justify-center items-center py-10 mt-10">
-                <FileText size={48} color={mutedIconColor} />
+                <FileText size={48} color={isDark ? '#4B4B50' : '#A0A0A0'} />
                 <Text className="text-muted-foreground text-center mt-4 px-6 text-lg font-medium">
                   There are no other notes in this folder.
                 </Text>

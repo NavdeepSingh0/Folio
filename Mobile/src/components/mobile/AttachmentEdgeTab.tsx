@@ -26,7 +26,6 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
   const [isFullScreen, setIsFullScreen] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
   const [pdfError, setPdfError] = useState(false);
-  const [savedPage, setSavedPage] = useState<number>(1);
   
   const { theme } = useThemeStore();
   const sysColorScheme = useSystemColorScheme();
@@ -34,15 +33,16 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
   const iconColor = isDark ? '#E0E0E0' : '#121212';
   const mutedIconColor = isDark ? '#8C8C91' : '#6B6B70';
 
+  // Synchronously fetch saved page before rendering
+  const savedPage = attachment?.id 
+    ? cache.getOfflineFallback<number>(`pdf_page_${attachment.id}`) || 1 
+    : 1;
+
   useEffect(() => {
     if (isOpen) {
       setIsMounted(true);
       setIsFullScreen(true);
       setPdfError(false);
-      if (attachment?.id) {
-        const p = cache.getOfflineFallback<number>(`pdf_page_${attachment.id}`);
-        setSavedPage(p || 1);
-      }
     } else {
       const t = setTimeout(() => setIsMounted(false), 300);
       return () => clearTimeout(t);
