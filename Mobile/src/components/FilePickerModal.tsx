@@ -50,29 +50,34 @@ export default function FilePickerModal({ notes, onNoteSelect, onCloseAll, isOpe
           </View>
 
           {/* List of files */}
-          <ScrollView className="p-4 flex-1">
+          <ScrollView className="flex-1 px-4 py-2">
             {visibleNotes.length === 0 ? (
-              <Text className="text-muted-foreground text-center mt-8">No other notes available.</Text>
+              <View className="flex-1 justify-center items-center py-10 mt-10">
+                <FileText size={48} color={mutedIconColor} />
+                <Text className="text-muted-foreground text-center mt-4 px-6 text-lg font-medium">
+                  There are no other notes in this folder.
+                </Text>
+              </View>
             ) : (
               visibleNotes.map((note) => (
                 <TouchableOpacity
                   key={note.id}
-                  className="flex-row items-center p-4 mb-3 bg-muted rounded-2xl border border-border"
-                  activeOpacity={0.7}
+                  className={`flex-row items-center p-4 mb-3 rounded-2xl border ${isDark ? 'bg-[#151516] border-[#2C2C2E]' : 'bg-[#FAFAFC] border-[#E8E8EB]'}`}
                   onPress={() => {
                     onClose();
                     onNoteSelect(note.id.toString());
                   }}
+                  activeOpacity={0.7}
                 >
-                  <View className="bg-background p-3 rounded-full mr-4 border border-border">
-                    <FileText size={20} color="#3b82f6" />
+                  <View className={`w-12 h-12 rounded-xl justify-center items-center mr-4 ${isDark ? 'bg-[#1A1A1B]' : 'bg-white shadow-sm'}`}>
+                    <FileText size={24} color={isDark ? '#E0E0E0' : '#121212'} />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-foreground font-semibold text-base mb-1" numberOfLines={1}>
-                      {note.name || 'Untitled'}
+                    <Text className={`text-lg font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`} numberOfLines={1}>
+                      {note.name || note.original_filename || 'Untitled'}
                     </Text>
-                    <Text className="text-muted-foreground text-sm" numberOfLines={1}>
-                      {note.content_preview || 'Empty note...'}
+                    <Text className={`text-sm ${isDark ? 'text-[#8C8C91]' : 'text-gray-500'}`}>
+                      {note.created_at ? new Date(note.created_at).toLocaleDateString() : 'Just now'}
                     </Text>
                   </View>
                 </TouchableOpacity>

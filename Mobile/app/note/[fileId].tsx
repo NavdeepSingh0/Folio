@@ -109,6 +109,12 @@ export default function NoteReaderScreen() {
         api.getAttachments(fileId as string).catch(() => []),
       ]);
 
+      console.log('--- loadNote DEBUG ---');
+      console.log('allFiles length:', files?.length);
+      console.log('fileData:', files.find((f: any) => f.id.toString() === fileId?.toString()));
+      console.log('attachments:', atts);
+      console.log('----------------------');
+
       cache.set(filesKey, files);
       cache.set(cacheKey, rawMarkdown);
       cache.set(attKey, atts);
