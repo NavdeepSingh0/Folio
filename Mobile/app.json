@@ -11,19 +11,13 @@
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
       "predictiveBackGestureEnabled": false,
       "package": "com.nick05.Mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "studyforge",
+    "scheme": "folio",
     "extra": {
       "eas": {
         "projectId": "2253d1cc-d1a7-4e25-96b5-fa6795c30208"

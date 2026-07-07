@@ -12,7 +12,7 @@ from app.models import schema
 # Create tables in the database (will not overwrite existing tables)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="StudyForge Backend API")
+app = FastAPI(title="Folio Backend API")
 
 # Configure CORS for frontend access
 app.add_middleware(
@@ -30,7 +30,7 @@ app.include_router(auth_router)
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to StudyForge API"}
+    return {"message": "Welcome to Folio API"}
 
 @app.get("/api/status")
 async def health_check():

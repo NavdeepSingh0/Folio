@@ -103,7 +103,7 @@ export default function SettingsScreen() {
             </View>
           </Animated.View>
 
-          <Text className="text-center text-muted-foreground text-[13px] mt-4 mb-10">StudyForge v1.0.0 (Build 56)</Text>
+          <Text className="text-center text-muted-foreground text-[13px] mt-4 mb-10">Folio v1.0.0 (Build 56)</Text>
         </ScrollView>
       </SafeAreaView>
 

@@ -24,7 +24,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     // Load from MMKV or fallback to defaults
     const storedUsername = storage.getString('user.username') || 'Alex Student';
-    const storedEmail = storage.getString('user.email') || 'alex@studyforge.com';
+    const storedEmail = storage.getString('user.email') || 'alex@folio.com';
     setUsername(storedUsername);
     setEmail(storedEmail);
     setLoading(false);
@@ -79,7 +79,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <View>
             <Text className="text-foreground text-xl font-bold">{storage.getString('user.username') || 'Alex Student'}</Text>
-            <Text className="text-muted-foreground text-sm">{storage.getString('user.email') || 'alex@studyforge.com'}</Text>
+            <Text className="text-muted-foreground text-sm">{storage.getString('user.email') || 'alex@folio.com'}</Text>
           </View>
         </View>
 

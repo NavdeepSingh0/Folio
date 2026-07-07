@@ -81,14 +81,14 @@ export async function setupLocalNotifications() {
 
     if (d12 > now) {
       await Notifications.scheduleNotificationAsync({
-        content: { title: "StudyForge 📚", body: msg12, sound: true },
+        content: { title: "Folio 📚", body: msg12, sound: true },
         trigger: { date: d12, type: 'date' as const },
       });
     }
 
     if (d19 > now) {
       await Notifications.scheduleNotificationAsync({
-        content: { title: "StudyForge 🌙", body: msg19, sound: true },
+        content: { title: "Folio 🌙", body: msg19, sound: true },
         trigger: { date: d19, type: 'date' as const },
       });
     }

@@ -20,7 +20,7 @@ const DEFAULT_SETTINGS: WorkspaceSettings = {
 
 export function useWorkspaceSettings() {
   const [settings, setSettings] = useState<WorkspaceSettings>(() => {
-    const saved = localStorage.getItem('studyforge_workspace_settings');
+    const saved = localStorage.getItem('folio_workspace_settings');
     if (saved) {
       try {
         return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
@@ -32,7 +32,7 @@ export function useWorkspaceSettings() {
   });
 
   useEffect(() => {
-    localStorage.setItem('studyforge_workspace_settings', JSON.stringify(settings));
+    localStorage.setItem('folio_workspace_settings', JSON.stringify(settings));
   }, [settings]);
 
   const updateSettings = (updates: Partial<WorkspaceSettings>) => {
