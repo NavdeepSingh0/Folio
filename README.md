@@ -1,5 +1,5 @@
 <div align="center">
-  <img width="1000" height="1000" alt="Folio (1)" src="https://github.com/user-attachments/assets/6c34e1b7-8893-402e-ab9d-94a122e13e66" />
+  <img width="120 alt="Folio" src="https://github.com/user-attachments/assets/6c34e1b7-8893-402e-ab9d-94a122e13e66" />
   <h1>Folio</h1>
   <p><strong>Cross-Platform Study Companion</strong></p>
   <p>Transform raw academic materials into highly structured, interactive learning experiences powered by AI.</p>
