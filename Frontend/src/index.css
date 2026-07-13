@@ -311,3 +311,44 @@
   position: absolute;
   inset: -3px 0;
 }
+
+/* === GitHub Markdown CSS Overrides === */
+.markdown-body {
+  background-color: transparent !important;
+  color: var(--color-foreground) !important;
+}
+
+.markdown-body h1, 
+.markdown-body h2, 
+.markdown-body h3, 
+.markdown-body h4, 
+.markdown-body h5, 
+.markdown-body h6 {
+  color: var(--color-foreground) !important;
+  border-bottom-color: var(--color-border) !important;
+}
+
+.markdown-body table tr {
+  background-color: transparent !important;
+  border-top-color: var(--color-border) !important;
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: var(--color-muted) !important;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  border-color: var(--color-border) !important;
+}
+
+.markdown-body code, 
+.markdown-body pre {
+  background-color: var(--color-muted) !important;
+  color: var(--color-foreground) !important;
+}
+
+.markdown-body blockquote {
+  color: var(--color-muted-foreground) !important;
+  border-left-color: var(--color-border) !important;
+}
