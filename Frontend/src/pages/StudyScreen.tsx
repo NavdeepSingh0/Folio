@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api";
 import { cache } from "../lib/cache";
+import "github-markdown-css/github-markdown.css";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useSearchParams } from "react-router-dom";
 
@@ -216,7 +217,23 @@ export function StudyScreen() {
             </button>
             <div className="w-px h-5 bg-border mx-1"></div>
             <button 
-              onClick={() => setIsEditing(!isEditing)}
+              onClick={async () => {
+                if (isEditing) {
+                  try {
+                    if (fileId) {
+                      await api.updateFile(fileId, { markdown_content: markdown });
+                      if (fileData) {
+                        const newData = { ...fileData, markdown_content: markdown };
+                        setFileData(newData);
+                        cache.set(`study_file_${fileId}`, newData);
+                      }
+                    }
+                  } catch (err) {
+                    console.error("Failed to save markdown", err);
+                  }
+                }
+                setIsEditing(!isEditing);
+              }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${isEditing ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
             >
               {isEditing ? <Eye className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
@@ -255,7 +272,7 @@ export function StudyScreen() {
                   <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 cursor-col-resize" />
                   <Panel minSize={30}>
                     <div className="h-full overflow-y-auto px-8 py-8 bg-background">
-                      <article className="prose dark:prose-invert max-w-none" style={{ fontSize: `${zoom}%` }}>
+                      <article className="markdown-body transition-all bg-transparent" style={{ fontSize: `${zoom}%` }}>
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
                       </article>
                     </div>
@@ -267,7 +284,7 @@ export function StudyScreen() {
                   <Panel minSize={30}>
                     <div className="h-full overflow-y-auto px-6 py-8 bg-background">
                       <div className="max-w-3xl mr-auto">
-                        <article className="prose dark:prose-invert max-w-none transition-all" style={{ fontSize: `${zoom}%` }}>
+                        <article className="markdown-body transition-all bg-transparent" style={{ fontSize: `${zoom}%` }}>
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
                         </article>
                       </div>
@@ -294,7 +311,7 @@ export function StudyScreen() {
                     </button>
                   )}
                   <div className="max-w-4xl mr-auto">
-                    <article className="prose dark:prose-invert max-w-none transition-all" style={{ fontSize: `${zoom}%` }}>
+                    <article className="markdown-body transition-all bg-transparent" style={{ fontSize: `${zoom}%` }}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
                     </article>
                   </div>

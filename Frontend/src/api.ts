@@ -64,7 +64,7 @@ export const api = {
   getAllFiles: () => apiFetch(`${BASE_URL}/files`).then(res => res.json()),
   getFile: (id: string | number) => apiFetch(`${BASE_URL}/files/${id}`).then(res => res.json()),
   getFacts: () => apiFetch(`${BASE_URL}/facts`).then(res => res.json()),
-  updateFile: (id: string | number, data: { name?: string, folder_id?: string | number | null }) =>
+  updateFile: (id: string | number, data: { name?: string, folder_id?: string | number | null, markdown_content?: string }) =>
     apiFetch(`${BASE_URL}/files/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

@@ -37,6 +37,7 @@ class FileCreate(FileBase):
 class FileUpdate(BaseModel):
     name: Optional[str] = None
     folder_id: Optional[int] = None
+    markdown_content: Optional[str] = None
 
 class FileResponse(FileBase):
     id: int
