@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
 import uuid
@@ -41,17 +42,32 @@ def get_current_user_id(
 
 @router.get("/folders", response_model=List[pydantic_schemas.FolderResponse])
 def get_folders(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
-    folders = db.query(schema.Folder).filter(schema.Folder.user_id == user_id).order_by(schema.Folder.created_at.desc()).all()
-    
-    response = []
-    for f in folders:
-        # Calculate notes count
-        notes_count = db.query(schema.File).filter(schema.File.folder_id == f.id).count()
-        f_dict = f.__dict__
-        f_dict["notes_count"] = notes_count
-        response.append(f_dict)
-        
-    return response
+    folders = db.query(
+        schema.Folder,
+        func.count(schema.File.id).label("notes_count")
+    ).outerjoin(
+        schema.File,
+        (schema.File.folder_id == schema.Folder.id) & (schema.File.user_id == user_id)
+    ).filter(
+        schema.Folder.user_id == user_id
+    ).group_by(
+        schema.Folder.id
+    ).order_by(
+        schema.Folder.created_at.desc()
+    ).all()
+
+    return [
+        {
+            "id": folder.id,
+            "user_id": folder.user_id,
+            "name": folder.name,
+            "color": folder.color,
+            "is_pinned": folder.is_pinned,
+            "created_at": folder.created_at,
+            "notes_count": notes_count,
+        }
+        for folder, notes_count in folders
+    ]
 
 @router.post("/folders", response_model=pydantic_schemas.FolderResponse)
 def create_folder(folder: pydantic_schemas.FolderCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
@@ -114,7 +130,7 @@ def delete_folder(folder_id: int, keep_notes: bool = True, db: Session = Depends
     return {"message": "Folder deleted successfully"}
 
 
-@router.get("/folders/{folder_id}/files", response_model=List[pydantic_schemas.FileResponse])
+@router.get("/folders/{folder_id}/files", response_model=List[pydantic_schemas.FileSummaryResponse])
 def get_files_by_folder(folder_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     return db.query(schema.File).filter(
         schema.File.user_id == user_id,
@@ -125,7 +141,7 @@ def get_files_by_folder(folder_id: int, db: Session = Depends(get_db), user_id: 
 # FILES ENDPOINTS (Library specific)
 # ==========================================
 
-@router.get("/files/unassigned", response_model=List[pydantic_schemas.FileResponse])
+@router.get("/files/unassigned", response_model=List[pydantic_schemas.FileSummaryResponse])
 def get_unassigned_files(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     return db.query(schema.File).filter(
         schema.File.user_id == user_id, 
@@ -176,7 +192,7 @@ def get_file(file_id: int, db: Session = Depends(get_db), user_id: int = Depends
         raise HTTPException(status_code=404, detail="File not found")
     return db_file
 
-@router.get("/files", response_model=List[pydantic_schemas.FileResponse])
+@router.get("/files", response_model=List[pydantic_schemas.FileSummaryResponse])
 def get_all_files(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     """Get all files for this user (assigned and unassigned), most recent first."""
     return db.query(schema.File).filter(

@@ -264,3 +264,9 @@ Key decisions made: Wrapped individual object parsers in AdvancedPracticeService
 Blockers encountered: The lack of strict height bounding (min-h-0) in parent flex containers was silently hiding the overflow scrollbars in the frontend.
 Next slice: Cross-Document Intelligence & OCR (Slice 13)
 ```
+
+[2026-07-14 13:05] SLICE: Reader & Library Performance
+What was built: List endpoints now return file metadata only, while readers continue to fetch and render the full Markdown document. Desktop reader rendering is memoized and navigation stays in-app; mobile avoids duplicate document requests and WebView reloads during panel interactions.
+Key decisions made: Preserved the existing full Markdown reader and visual experience; performance work is limited to data transfer, query count, and unnecessary renders.
+Blockers encountered: Mobile TypeScript verification could not run because this workspace has no local TypeScript binary.
+Next slice: Measure real-device load times and bundle mobile Markdown assets for fully offline rendering

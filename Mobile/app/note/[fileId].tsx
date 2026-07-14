@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { 
   View, Text, TouchableOpacity, TextInput, Dimensions, useColorScheme as useSystemColorScheme
 } from 'react-native';
@@ -58,6 +58,9 @@ export default function NoteReaderScreen() {
 
   const setScrollPosition = useScrollStore(s => s.setScrollPosition);
   const initialScrollY = useRef(useScrollStore.getState().positions[fileId as string] || 0).current;
+  const handleScroll = useCallback((y: number) => {
+    setScrollPosition(fileId as string, y);
+  }, [fileId, setScrollPosition]);
 
   // Search
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -112,30 +115,23 @@ export default function NoteReaderScreen() {
       if (cachedContent) { setContent(cachedContent); setLoading(false); }
       if (cachedAtts) setAttachments(cachedAtts);
 
-      // Always fetch fresh in parallel
-      const [files, foldersData, rawMarkdown, atts] = await Promise.all([
+      // The list is metadata-only; load the full document once for the active reader.
+      const [files, foldersData, currentFile, atts] = await Promise.all([
         api.getAllFiles(),
         api.getFolders().catch(() => []),
-        api.getFileContent(fileId as string),
+        api.getFile(fileId as string),
         api.getAttachments(fileId as string).catch(() => []),
       ]);
 
-      console.log('--- loadNote DEBUG ---');
-      console.log('allFiles length:', files?.length);
-      console.log('fileData:', files.find((f: any) => f.id.toString() === fileId?.toString()));
-      console.log('attachments:', atts);
-      console.log('----------------------');
-
       cache.set(filesKey, files);
       cache.set(foldersKey, foldersData);
-      cache.set(cacheKey, rawMarkdown);
+      cache.set(cacheKey, currentFile.markdown_content || '');
       cache.set(attKey, atts);
 
-      const currentFile = files.find((f: any) => f.id.toString() === fileId?.toString());
-      if (currentFile) setFileData(currentFile);
+      setFileData(currentFile);
       setAllFiles(files);
       setFolders(foldersData);
-      setContent(rawMarkdown);
+      setContent(currentFile.markdown_content || '');
       setAttachments(atts || []);
     } catch (error) {
       console.error("Failed to load note:", error);
@@ -272,7 +268,7 @@ export default function NoteReaderScreen() {
                       searchQuery={searchQuery} 
                       searchTrigger={searchTrigger}
                       initialScrollY={initialScrollY}
-                      onScroll={(y) => setScrollPosition(fileId as string, y)}
+                      onScroll={handleScroll}
                     />
                   </Animated.View>
                 )}

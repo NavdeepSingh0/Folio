@@ -3,8 +3,10 @@ import { Search, Folder, FileText, Clock, TrendingUp, Calendar, ChevronRight, Hi
 import { AppLayout } from "../components/AppLayout";
 import { api } from "../api";
 import { cache } from "../lib/cache";
+import { useNavigate } from "react-router-dom";
 
 export function Home() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeWidget, setActiveWidget] = useState(0);
   const [pinnedFolders, setPinnedFolders] = useState<any[]>(() => cache.get<any[]>('home_pinned') || []);
@@ -75,7 +77,7 @@ export function Home() {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {pinnedFolders.length > 0 ? (
                   pinnedFolders.map((folder) => (
-                    <button key={folder.id} onClick={() => window.location.href = `/library?folder=${folder.id}`} className="flex items-center gap-3 p-3.5 rounded-xl bg-card border border-border hover:border-primary/40 hover:shadow-sm transition-all text-left group">
+                    <button key={folder.id} onClick={() => navigate(`/library?folder=${folder.id}`)} className="flex items-center gap-3 p-3.5 rounded-xl bg-card border border-border hover:border-primary/40 hover:shadow-sm transition-all text-left group">
                       <div className="w-9 h-9 rounded-lg bg-surface flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
                         <Folder className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
                       </div>
@@ -102,7 +104,7 @@ export function Home() {
               <div className="flex-1 overflow-y-auto pr-2 pb-4 space-y-3 scroll-smooth overscroll-y-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {recentNotes.length > 0 ? (
                   recentNotes.map((note) => (
-                    <button key={note.id} onClick={() => window.location.href = `/study?file=${note.id}`} className="w-full flex items-center justify-between p-4 rounded-xl bg-card border border-border hover:border-primary/40 hover:shadow-sm transition-all text-left group">
+                    <button key={note.id} onClick={() => navigate(`/study?file=${note.id}`)} className="w-full flex items-center justify-between p-4 rounded-xl bg-card border border-border hover:border-primary/40 hover:shadow-sm transition-all text-left group">
                       <div className="flex items-center gap-4 overflow-hidden">
                         <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center shrink-0">
                           <FileText className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />

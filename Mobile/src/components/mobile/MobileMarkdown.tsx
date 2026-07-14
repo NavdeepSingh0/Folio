@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { memo, useEffect, useMemo, useRef } from 'react';
 import { View, ActivityIndicator, useColorScheme as useSystemColorScheme } from 'react-native';
 import { useThemeStore } from '../../store/themeStore';
 import { WebView } from 'react-native-webview';
@@ -11,12 +11,17 @@ interface MobileMarkdownProps {
   onScroll?: (y: number) => void;
 }
 
-export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScrollY = 0, onScroll }: MobileMarkdownProps) {
+function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScrollY = 0, onScroll }: MobileMarkdownProps) {
   const webViewRef = useRef<WebView>(null);
+  const onScrollRef = useRef(onScroll);
   const { theme } = useThemeStore();
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   const prevTrigger = useRef(searchTrigger);
+
+  useEffect(() => {
+    onScrollRef.current = onScroll;
+  }, [onScroll]);
 
   // Inject search query whenever it changes
   useEffect(() => {
@@ -25,10 +30,10 @@ export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0
         const isBackwards = searchTrigger < prevTrigger.current;
         prevTrigger.current = searchTrigger;
         
-        // Simple search highlighting via JS
+        const escapedSearchQuery = JSON.stringify(searchQuery);
         webViewRef.current.injectJavaScript(`
           if (window.find) {
-            window.find('${searchQuery}', false, ${isBackwards}, true, false, true, false);
+            window.find(${escapedSearchQuery}, false, ${isBackwards}, true, false, true, false);
           }
           true;
         `);
@@ -36,9 +41,7 @@ export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0
     }
   }, [searchQuery, searchTrigger]);
 
-  if (!content) return null;
-
-  const htmlContent = `
+  const htmlContent = useMemo(() => `
     <!DOCTYPE html>
     <html>
     <head>
@@ -134,13 +137,16 @@ export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0
       </script>
     </body>
     </html>
-  `;
+  `, [content, initialScrollY, isDark]);
+  const webViewSource = useMemo(() => ({ html: htmlContent }), [htmlContent]);
+
+  if (!content) return null;
 
   return (
     <View className="flex-1 min-h-[800px] bg-background">
       <WebView
         ref={webViewRef}
-        source={{ html: htmlContent }}
+        source={webViewSource}
         style={{ flex: 1, backgroundColor: 'transparent' }}
         scalesPageToFit={false}
         showsVerticalScrollIndicator={false}
@@ -148,8 +154,8 @@ export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0
         onMessage={(event) => {
           try {
             const data = JSON.parse(event.nativeEvent.data);
-            if (data.type === 'scroll' && onScroll) {
-              onScroll(data.y);
+            if (data.type === 'scroll' && onScrollRef.current) {
+              onScrollRef.current(data.y);
             }
           } catch (e) {}
         }}
@@ -164,3 +170,11 @@ export default function MobileMarkdown({ content, searchQuery, searchTrigger = 0
     </View>
   );
 }
+
+export default memo(MobileMarkdown, (previous, next) => (
+  previous.content === next.content &&
+  previous.searchQuery === next.searchQuery &&
+  previous.searchTrigger === next.searchTrigger &&
+  previous.initialScrollY === next.initialScrollY &&
+  previous.onScroll === next.onScroll
+));

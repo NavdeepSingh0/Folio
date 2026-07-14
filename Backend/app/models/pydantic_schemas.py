@@ -50,6 +50,17 @@ class FileResponse(FileBase):
     class Config:
         from_attributes = True
 
+class FileSummaryResponse(FileBase):
+    """Lightweight file metadata used by library and dashboard lists."""
+    id: int
+    user_id: int
+    original_filename: str
+    file_size: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 # --- Facts ---
 class FactResponse(BaseModel):
     id: int

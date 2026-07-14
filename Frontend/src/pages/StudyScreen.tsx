@@ -7,7 +7,8 @@ import { api } from "../api";
 import { cache } from "../lib/cache";
 import "github-markdown-css/github-markdown.css";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import StudyMarkdown from "../components/StudyMarkdown";
 
 const SAMPLE_MARKDOWN = `
 # Newton's Laws of Motion
@@ -26,6 +27,7 @@ Whenever one object exerts a force on a second object, the second object exerts 
 
 export function StudyScreen() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const fileId = searchParams.get("file");
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -113,9 +115,9 @@ export function StudyScreen() {
       });
     } else {
       // If no file loaded, navigate to library
-      window.location.href = "/library";
+      navigate("/library", { replace: true });
     }
-  }, [fileId]);
+  }, [fileId, navigate]);
 
   // Keyboard shortcut for zoom
   useEffect(() => {
@@ -175,11 +177,11 @@ export function StudyScreen() {
                 <Edit2 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             )}
-            <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground cursor-pointer ml-1" onClick={() => window.location.href = '/library'} />
+            <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground cursor-pointer ml-1" onClick={() => navigate('/library')} />
           </div>
           {/* Add New Tab Button */}
           <button 
-            onClick={() => window.location.href = '/library'}
+            onClick={() => navigate('/library')}
             className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors ml-1 rounded-md"
             title="Open another file"
           >
@@ -272,9 +274,7 @@ export function StudyScreen() {
                   <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 cursor-col-resize" />
                   <Panel minSize={30}>
                     <div className="h-full overflow-y-auto px-8 py-8 bg-background">
-                      <article className="markdown-body transition-all bg-transparent" style={{ fontSize: `${zoom}%` }}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-                      </article>
+                      <StudyMarkdown content={markdown} zoom={zoom} />
                     </div>
                   </Panel>
                 </PanelGroup>
@@ -284,9 +284,7 @@ export function StudyScreen() {
                   <Panel minSize={30}>
                     <div className="h-full overflow-y-auto px-6 py-8 bg-background">
                       <div className="max-w-3xl mr-auto">
-                        <article className="markdown-body transition-all bg-transparent" style={{ fontSize: `${zoom}%` }}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-                        </article>
+                        <StudyMarkdown content={markdown} zoom={zoom} />
                       </div>
                     </div>
                   </Panel>
@@ -311,9 +309,7 @@ export function StudyScreen() {
                     </button>
                   )}
                   <div className="max-w-4xl mr-auto">
-                    <article className="markdown-body transition-all bg-transparent" style={{ fontSize: `${zoom}%` }}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-                    </article>
+                    <StudyMarkdown content={markdown} zoom={zoom} />
                   </div>
                 </div>
               )}
