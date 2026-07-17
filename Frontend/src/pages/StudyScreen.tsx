@@ -174,61 +174,6 @@ export function StudyScreen() {
               />
             ) : (
               <div className="flex-1 flex items-center gap-2 overflow-hidden cursor-pointer" onClick={() => setEditingName(true)} title="Click to rename">
-
-  // Keyboard shortcut for zoom
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        if (e.key === "=" || e.key === "+") {
-          e.preventDefault();
-          setZoom(z => Math.min(z + 10, 200));
-        } else if (e.key === "-") {
-          e.preventDefault();
-          setZoom(z => Math.max(z - 10, 50));
-        } else if (e.key === "0") {
-          e.preventDefault();
-          setZoom(100);
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  const saveFileName = async () => {
-    if (editNameValue.trim() === "" || !fileId) {
-      setEditingName(false);
-      return;
-    }
-    try {
-      await api.updateFile(fileId, { name: editNameValue.trim() });
-      setFileData({ ...fileData, name: editNameValue.trim() });
-    } catch (err) {
-      console.error(err);
-    }
-    setEditingName(false);
-  };
-
-  return (
-    <AppLayout>
-      <div className="h-full w-full bg-background relative flex flex-col">
-        
-        {/* Top Navigation - File Tabs */}
-        <div className="h-12 border-b border-border flex items-center bg-surface shrink-0 overflow-x-auto">
-          {/* Active Tab */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-background border-r border-border border-t-2 border-t-primary min-w-48 h-full group">
-            <FileIcon className="w-4 h-4 text-primary shrink-0" />
-            {editingName ? (
-              <input
-                autoFocus
-                value={editNameValue}
-                onChange={(e) => setEditNameValue(e.target.value)}
-                onBlur={saveFileName}
-                onKeyDown={(e) => e.key === 'Enter' && saveFileName()}
-                className="text-sm font-medium w-full bg-transparent border-b border-primary outline-none"
-              />
-            ) : (
-              <div className="flex-1 flex items-center gap-2 overflow-hidden cursor-pointer" onClick={() => setEditingName(true)} title="Click to rename">
                 <span className="text-sm font-medium truncate">{fileData?.name || "Loading..."}</span>
                 <Edit2 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
