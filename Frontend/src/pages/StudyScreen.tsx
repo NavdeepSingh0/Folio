@@ -201,6 +201,26 @@ export function StudyScreen() {
     setEditingName(false);
   };
 
+  const handleImageUpload = async (file: File, cursorStart: number, cursorEnd: number) => {
+    if (!fileId) return;
+    
+    const placeholder = `![Uploading ${file.name}...]()`;
+    const newMarkdown = markdown.substring(0, cursorStart) + placeholder + markdown.substring(cursorEnd);
+    setMarkdown(newMarkdown);
+    
+    try {
+      const uploadedAtt = await api.uploadAttachment(fileId, file);
+      const imgMarkdown = `![${file.name}](${uploadedAtt.public_url})`;
+      setMarkdown(prev => prev.replace(placeholder, imgMarkdown));
+      setPanelAttachments(prev => [uploadedAtt, ...prev]);
+    } catch (err) {
+      console.error("Failed to upload image", err);
+      setMarkdown(prev => prev.replace(placeholder, ""));
+      setSaveStatus("Error uploading image");
+      setTimeout(() => setSaveStatus(null), 2000);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="h-full w-full bg-background relative flex flex-col">
@@ -336,6 +356,28 @@ export function StudyScreen() {
                     <textarea 
                       value={markdown}
                       onChange={(e) => setMarkdown(e.target.value)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          const file = e.dataTransfer.files[0];
+                          if (file.type.startsWith('image/')) {
+                            const start = e.currentTarget.selectionStart;
+                            const end = e.currentTarget.selectionEnd;
+                            handleImageUpload(file, start, end);
+                          }
+                        }
+                      }}
+                      onPaste={(e) => {
+                        if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+                          const file = e.clipboardData.files[0];
+                          if (file.type.startsWith('image/')) {
+                            e.preventDefault();
+                            const start = e.currentTarget.selectionStart;
+                            const end = e.currentTarget.selectionEnd;
+                            handleImageUpload(file, start, end);
+                          }
+                        }
+                      }}
                       onKeyDown={async (e) => {
                         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                           e.preventDefault();
