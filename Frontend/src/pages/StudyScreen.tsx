@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useDeferredValue } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { MessageSquare, Paperclip, Send, Minimize2, Edit, Edit2, Eye, Info, X, FileText, File as FileIcon, Plus, Loader2, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -36,7 +36,8 @@ export function StudyScreen() {
   const [editingName, setEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
   const [markdown, setMarkdown] = useState("");
-  const deferredMarkdown = useDeferredValue(markdown);
+  const [previewMarkdown, setPreviewMarkdown] = useState("");
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [fileData, setFileData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showDocInfo, setShowDocInfo] = useState(false);
@@ -48,6 +49,50 @@ export function StudyScreen() {
   const [chatHistory, setChatHistory] = useState([{ role: "model", text: "Hello! I've loaded the context for this document. What would you like to know?" }]);
   const [chatAttachments, setChatAttachments] = useState<File[]>([]);
   const [isSending, setIsSending] = useState(false);
+
+  const [openTabs, setOpenTabs] = useState<{id: string, name: string}[]>(() => {
+    try {
+      const saved = localStorage.getItem('folio_open_tabs');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  useEffect(() => {
+    const t = setTimeout(() => setPreviewMarkdown(markdown), 150);
+    return () => clearTimeout(t);
+  }, [markdown]);
+
+  useEffect(() => {
+    if (fileId && fileData && fileData.name) {
+      setOpenTabs(prev => {
+        const exists = prev.find(t => t.id === fileId);
+        if (!exists) {
+          const newTabs = [...prev, { id: fileId, name: fileData.name }];
+          localStorage.setItem('folio_open_tabs', JSON.stringify(newTabs));
+          return newTabs;
+        } else if (exists.name !== fileData.name) {
+          const newTabs = prev.map(t => t.id === fileId ? { ...t, name: fileData.name } : t);
+          localStorage.setItem('folio_open_tabs', JSON.stringify(newTabs));
+          return newTabs;
+        }
+        return prev;
+      });
+    }
+  }, [fileId, fileData]);
+
+  const closeTab = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const newTabs = openTabs.filter(t => t.id !== id);
+    setOpenTabs(newTabs);
+    localStorage.setItem('folio_open_tabs', JSON.stringify(newTabs));
+    if (id === fileId) {
+      if (newTabs.length > 0) {
+        navigate(`/study?file=${newTabs[newTabs.length - 1].id}`);
+      } else {
+        navigate('/library');
+      }
+    }
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [panelAttachments, setPanelAttachments] = useState<any[]>([]);
@@ -86,6 +131,7 @@ export function StudyScreen() {
         setFileData(cachedFile);
         setEditNameValue(cachedFile.name || "");
         setMarkdown(cachedFile.markdown_content || "No content extracted.");
+        setPreviewMarkdown(cachedFile.markdown_content || "No content extracted.");
         setIsLoading(false);
       } else {
         setIsLoading(true);
@@ -101,6 +147,7 @@ export function StudyScreen() {
         setFileData(data);
         setEditNameValue(data.name || "");
         setMarkdown(data.markdown_content || "No content extracted.");
+        setPreviewMarkdown(data.markdown_content || "No content extracted.");
         cache.set(`study_file_${fileId}`, data);
         setIsLoading(false);
       }).catch(err => {
@@ -159,32 +206,47 @@ export function StudyScreen() {
       <div className="h-full w-full bg-background relative flex flex-col">
         
         {/* Top Navigation - File Tabs */}
-        <div className="h-12 border-b border-border flex items-center bg-surface shrink-0 overflow-x-auto">
-          {/* Active Tab */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-background border-r border-border border-t-2 border-t-primary min-w-48 h-full group">
-            <FileIcon className="w-4 h-4 text-primary shrink-0" />
-            {editingName ? (
-              <input
-                autoFocus
-                value={editNameValue}
-                onChange={(e) => setEditNameValue(e.target.value)}
-                onBlur={saveFileName}
-                onKeyDown={(e) => e.key === 'Enter' && saveFileName()}
-                className="text-sm font-medium w-full bg-transparent border-b border-primary outline-none"
-              />
-            ) : (
-              <div className="flex-1 flex items-center gap-2 overflow-hidden cursor-pointer" onClick={() => setEditingName(true)} title="Click to rename">
-                <span className="text-sm font-medium truncate">{fileData?.name || "Loading..."}</span>
-                <Edit2 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="h-12 border-b border-border flex items-center bg-surface shrink-0 overflow-x-auto overflow-y-hidden">
+          {openTabs.map(tab => {
+            const isActive = tab.id === fileId;
+            return (
+              <div 
+                key={tab.id}
+                onClick={() => navigate(`/study?file=${tab.id}`)}
+                className={`flex items-center gap-2 px-4 py-2 border-r border-border h-full cursor-pointer group min-w-32 max-w-64 transition-colors ${isActive ? 'bg-background border-t-2 border-t-primary' : 'bg-surface hover:bg-muted border-t-2 border-t-transparent'}`}
+              >
+                <FileIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                {isActive && editingName ? (
+                  <input
+                    autoFocus
+                    value={editNameValue}
+                    onChange={(e) => setEditNameValue(e.target.value)}
+                    onBlur={saveFileName}
+                    onKeyDown={(e) => e.key === 'Enter' && saveFileName()}
+                    className="text-sm font-medium w-full bg-transparent border-b border-primary outline-none"
+                  />
+                ) : (
+                  <div className="flex-1 flex items-center gap-2 overflow-hidden" onClick={(e) => { if (isActive) { e.stopPropagation(); setEditingName(true); } }} title={isActive ? "Click to rename" : tab.name}>
+                    <span className={`text-sm truncate ${isActive ? 'font-medium text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>{tab.name}</span>
+                    {isActive && <Edit2 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />}
+                  </div>
+                )}
+                <button 
+                  onClick={(e) => closeTab(e, tab.id)}
+                  className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all shrink-0"
+                  title="Close tab"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
-            )}
-            <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground cursor-pointer ml-1" onClick={() => navigate('/library')} />
-          </div>
+            );
+          })}
+          
           {/* Add New Tab Button */}
           <button 
-            onClick={() => window.open('/library', '_blank')}
-            className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors ml-1 rounded-md"
-            title="Open another note in a new tab"
+            onClick={() => navigate('/library')}
+            className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors ml-1 shrink-0 rounded-md"
+            title="Open another note from Library"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -219,10 +281,12 @@ export function StudyScreen() {
               Attachments
             </button>
             <div className="w-px h-5 bg-border mx-1"></div>
+            {saveStatus && <span className="text-xs font-medium text-green-500 animate-in fade-in mr-2">{saveStatus}</span>}
             <button 
               onClick={async () => {
                 if (isEditing) {
                   try {
+                    setSaveStatus("Saving...");
                     if (fileId) {
                       await api.updateFile(fileId, { markdown_content: markdown });
                       if (fileData) {
@@ -231,8 +295,12 @@ export function StudyScreen() {
                         cache.set(`study_file_${fileId}`, newData);
                       }
                     }
+                    setSaveStatus("Saved!");
+                    setTimeout(() => setSaveStatus(null), 2000);
                   } catch (err) {
                     console.error("Failed to save markdown", err);
+                    setSaveStatus("Error!");
+                    setTimeout(() => setSaveStatus(null), 2000);
                   }
                 }
                 setIsEditing(!isEditing);
@@ -272,6 +340,7 @@ export function StudyScreen() {
                         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                           e.preventDefault();
                           try {
+                            setSaveStatus("Saving...");
                             if (fileId) {
                               await api.updateFile(fileId, { markdown_content: markdown });
                               if (fileData) {
@@ -280,8 +349,12 @@ export function StudyScreen() {
                                 cache.set(`study_file_${fileId}`, newData);
                               }
                             }
+                            setSaveStatus("Saved!");
+                            setTimeout(() => setSaveStatus(null), 2000);
                           } catch (err) {
                             console.error("Failed to save markdown", err);
+                            setSaveStatus("Error!");
+                            setTimeout(() => setSaveStatus(null), 2000);
                           }
                         }
                       }}
@@ -292,7 +365,7 @@ export function StudyScreen() {
                   <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 cursor-col-resize" />
                   <Panel minSize={30}>
                     <div className="h-full overflow-y-auto px-8 py-8 bg-background">
-                      <StudyMarkdown content={deferredMarkdown} zoom={zoom} />
+                      <StudyMarkdown content={previewMarkdown} zoom={zoom} />
                     </div>
                   </Panel>
                 </PanelGroup>
@@ -302,7 +375,7 @@ export function StudyScreen() {
                   <Panel minSize={30}>
                     <div className="h-full overflow-y-auto px-6 py-8 bg-background">
                       <div className="max-w-3xl mr-auto">
-                        <StudyMarkdown content={deferredMarkdown} zoom={zoom} />
+                        <StudyMarkdown content={previewMarkdown} zoom={zoom} />
                       </div>
                     </div>
                   </Panel>
@@ -327,7 +400,7 @@ export function StudyScreen() {
                     </button>
                   )}
                   <div className="max-w-4xl mr-auto">
-                    <StudyMarkdown content={deferredMarkdown} zoom={zoom} />
+                    <StudyMarkdown content={previewMarkdown} zoom={zoom} />
                   </div>
                 </div>
               )}
