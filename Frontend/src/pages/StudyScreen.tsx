@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useDeferredValue } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { MessageSquare, Paperclip, Send, Minimize2, Edit, Edit2, Eye, Info, X, FileText, File as FileIcon, Plus, Loader2, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -36,6 +36,7 @@ export function StudyScreen() {
   const [editingName, setEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
   const [markdown, setMarkdown] = useState("");
+  const deferredMarkdown = useDeferredValue(markdown);
   const [fileData, setFileData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showDocInfo, setShowDocInfo] = useState(false);
@@ -173,6 +174,61 @@ export function StudyScreen() {
               />
             ) : (
               <div className="flex-1 flex items-center gap-2 overflow-hidden cursor-pointer" onClick={() => setEditingName(true)} title="Click to rename">
+
+  // Keyboard shortcut for zoom
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "=" || e.key === "+") {
+          e.preventDefault();
+          setZoom(z => Math.min(z + 10, 200));
+        } else if (e.key === "-") {
+          e.preventDefault();
+          setZoom(z => Math.max(z - 10, 50));
+        } else if (e.key === "0") {
+          e.preventDefault();
+          setZoom(100);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const saveFileName = async () => {
+    if (editNameValue.trim() === "" || !fileId) {
+      setEditingName(false);
+      return;
+    }
+    try {
+      await api.updateFile(fileId, { name: editNameValue.trim() });
+      setFileData({ ...fileData, name: editNameValue.trim() });
+    } catch (err) {
+      console.error(err);
+    }
+    setEditingName(false);
+  };
+
+  return (
+    <AppLayout>
+      <div className="h-full w-full bg-background relative flex flex-col">
+        
+        {/* Top Navigation - File Tabs */}
+        <div className="h-12 border-b border-border flex items-center bg-surface shrink-0 overflow-x-auto">
+          {/* Active Tab */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-background border-r border-border border-t-2 border-t-primary min-w-48 h-full group">
+            <FileIcon className="w-4 h-4 text-primary shrink-0" />
+            {editingName ? (
+              <input
+                autoFocus
+                value={editNameValue}
+                onChange={(e) => setEditNameValue(e.target.value)}
+                onBlur={saveFileName}
+                onKeyDown={(e) => e.key === 'Enter' && saveFileName()}
+                className="text-sm font-medium w-full bg-transparent border-b border-primary outline-none"
+              />
+            ) : (
+              <div className="flex-1 flex items-center gap-2 overflow-hidden cursor-pointer" onClick={() => setEditingName(true)} title="Click to rename">
                 <span className="text-sm font-medium truncate">{fileData?.name || "Loading..."}</span>
                 <Edit2 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
@@ -181,9 +237,9 @@ export function StudyScreen() {
           </div>
           {/* Add New Tab Button */}
           <button 
-            onClick={() => navigate('/library')}
+            onClick={() => window.open('/library', '_blank')}
             className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors ml-1 rounded-md"
-            title="Open another file"
+            title="Open another note in a new tab"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -267,6 +323,23 @@ export function StudyScreen() {
                     <textarea 
                       value={markdown}
                       onChange={(e) => setMarkdown(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                          e.preventDefault();
+                          try {
+                            if (fileId) {
+                              await api.updateFile(fileId, { markdown_content: markdown });
+                              if (fileData) {
+                                const newData = { ...fileData, markdown_content: markdown };
+                                setFileData(newData);
+                                cache.set(`study_file_${fileId}`, newData);
+                              }
+                            }
+                          } catch (err) {
+                            console.error("Failed to save markdown", err);
+                          }
+                        }
+                      }}
                       style={{ fontSize: `${zoom}%` }}
                       className="w-full h-full p-6 bg-surface border-r border-border font-mono resize-none focus:outline-none"
                     />
@@ -274,7 +347,7 @@ export function StudyScreen() {
                   <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 cursor-col-resize" />
                   <Panel minSize={30}>
                     <div className="h-full overflow-y-auto px-8 py-8 bg-background">
-                      <StudyMarkdown content={markdown} zoom={zoom} />
+                      <StudyMarkdown content={deferredMarkdown} zoom={zoom} />
                     </div>
                   </Panel>
                 </PanelGroup>
@@ -284,7 +357,7 @@ export function StudyScreen() {
                   <Panel minSize={30}>
                     <div className="h-full overflow-y-auto px-6 py-8 bg-background">
                       <div className="max-w-3xl mr-auto">
-                        <StudyMarkdown content={markdown} zoom={zoom} />
+                        <StudyMarkdown content={deferredMarkdown} zoom={zoom} />
                       </div>
                     </div>
                   </Panel>
@@ -309,7 +382,7 @@ export function StudyScreen() {
                     </button>
                   )}
                   <div className="max-w-4xl mr-auto">
-                    <StudyMarkdown content={markdown} zoom={zoom} />
+                    <StudyMarkdown content={deferredMarkdown} zoom={zoom} />
                   </div>
                 </div>
               )}
