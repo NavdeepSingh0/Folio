@@ -27,7 +27,7 @@ export default function FilePickerModal({ notes, folders = [], onNoteSelect, onC
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [visibleNotes, setVisibleNotes] = useState(notes);
   
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
 

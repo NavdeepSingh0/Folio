@@ -40,7 +40,7 @@ export default function LibraryScreen() {
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [uploading, setUploading] = useState(false);
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   

@@ -10,7 +10,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { theme, setTheme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
+  const setTheme = useThemeStore(s => s.setTheme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   

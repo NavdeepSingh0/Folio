@@ -11,7 +11,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://folio-g049.onrender.com/api";
 
 export default function AuthScreen() {
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const isDark = theme === 'dark' || theme === 'system';
   const router = useRouter();
 

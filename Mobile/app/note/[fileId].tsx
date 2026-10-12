@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   View, Text, TouchableOpacity, TextInput, Dimensions, useColorScheme as useSystemColorScheme
 } from 'react-native';
@@ -42,7 +42,7 @@ function NoteReaderSkeleton() {
 export default function NoteReaderScreen() {
   const { fileId } = useLocalSearchParams();
   const router = useRouter();
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   
@@ -84,13 +84,30 @@ export default function NoteReaderScreen() {
     });
   }, [fileId]);
 
-  const { initialized, session } = useAuthStore();
+  // Keyed on user id (not session) so token refreshes don't reload the note
+  const initialized = useAuthStore(s => s.initialized);
+  const userId = useAuthStore(s => s.user?.id);
+
+  // Parsed note bodies for the switcher, so render never parses MMKV
+  const noteContentRef = useRef<Map<string, string>>(new Map());
+  const [noteContentVersion, setNoteContentVersion] = useState(0);
 
   useEffect(() => {
-    if (initialized && session) {
+    if (initialized && userId) {
       loadNote();
     }
-  }, [fileId, initialized, session]);
+  }, [fileId, initialized, userId]);
+
+  useEffect(() => {
+    let added = false;
+    for (const id of openNoteIds) {
+      if (noteContentRef.current.has(id)) continue;
+      // Display uses the offline fallback; TTL only governs refetching
+      const cached = cache.getOfflineFallback<string>(`note_${id}`);
+      if (cached) { noteContentRef.current.set(id, cached); added = true; }
+    }
+    if (added) setNoteContentVersion(v => v + 1);
+  }, [openNoteIds]);
 
   const loadNote = async () => {
     setLoading(true);
@@ -101,7 +118,7 @@ export default function NoteReaderScreen() {
 
     try {
       // Serve cached data instantly
-      const cachedContent = cache.get<string>(cacheKey);
+      const cachedContent = cache.getOfflineFallback<string>(cacheKey);
       const cachedFiles = cache.get<any[]>(filesKey);
       const cachedFolders = cache.get<any[]>(foldersKey);
       const cachedAtts = cache.get<any[]>(attKey);
@@ -132,6 +149,8 @@ export default function NoteReaderScreen() {
       setAllFiles(files);
       setFolders(foldersData);
       setContent(currentFile.markdown_content || '');
+      noteContentRef.current.set(fileId as string, currentFile.markdown_content || '');
+      setNoteContentVersion(v => v + 1);
       setAttachments(atts || []);
     } catch (error) {
       console.error("Failed to load note:", error);
@@ -160,6 +179,24 @@ export default function NoteReaderScreen() {
     }
   };
 
+  const notes = useMemo(() => openNoteIds.map(id => {
+    // Fall back to the active file's metadata when the list hasn't loaded it yet
+    const f = allFiles.find(f => f.id.toString() === id)
+      || (fileData && fileData.id?.toString() === id ? fileData : null);
+    if (!f) return null;
+    return { ...f, content: noteContentRef.current.get(id) };
+  }).filter(Boolean), [openNoteIds, allFiles, fileData, noteContentVersion]);
+
+  const handleCloseSwitcher = useCallback(() => setIsNoteSwitcherOpen(false), []);
+  const handleSwitcherSelect = useCallback((id: string) => {
+    setIsNoteSwitcherOpen(false);
+    router.setParams({ fileId: id });
+  }, [router]);
+  const handleCloseAll = useCallback(() => {
+    setIsNoteSwitcherOpen(false);
+    router.back();
+  }, [router]);
+
   const handleAttachmentSelect = (att: any) => {
     setIsAttachmentPickerOpen(false);
     setActiveAttachment(att);
@@ -184,23 +221,13 @@ export default function NoteReaderScreen() {
       
       {/* The Unified NoteStackViewer handles rendering the entire UI via activeCardContent */}
       <NoteStackViewer 
-        notes={openNoteIds.map(id => {
-          const f = allFiles.find(f => f.id.toString() === id);
-          if (!f) return null;
-          return { ...f, content: cache.get<string>(`note_${id}`) };
-        }).filter(Boolean)}
+        notes={notes}
         isOpen={isNoteSwitcherOpen}
-        onClose={() => setIsNoteSwitcherOpen(false)}
+        onClose={handleCloseSwitcher}
         activeNoteId={fileId as string}
-        onNoteSelect={(id) => {
-          setIsNoteSwitcherOpen(false);
-          router.setParams({ fileId: id });
-        }}
+        onNoteSelect={handleSwitcherSelect}
         onDismissNote={handleDismissTab}
-        onCloseAll={() => {
-          setIsNoteSwitcherOpen(false);
-          router.back();
-        }}
+        onCloseAll={handleCloseAll}
         activeCardContent={
           <View style={{ flex: 1, backgroundColor: isDark ? '#121212' : '#FFFFFF' }}>
             <SafeAreaView className="flex-1" edges={['top']}>

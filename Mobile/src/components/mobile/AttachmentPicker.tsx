@@ -15,7 +15,7 @@ interface AttachmentPickerProps {
 
 export default function AttachmentPicker({ attachments, isOpen, onClose, onSelect }: AttachmentPickerProps) {
   const translateY = useSharedValue(SCREEN_HEIGHT);
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   const iconColor = isDark ? '#E0E0E0' : '#121212';

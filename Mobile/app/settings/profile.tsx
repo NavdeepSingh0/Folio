@@ -10,7 +10,7 @@ const storage = createMMKV();
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   const iconColor = isDark ? '#E0E0E0' : '#121212';

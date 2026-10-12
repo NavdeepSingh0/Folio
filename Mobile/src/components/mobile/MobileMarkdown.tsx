@@ -14,14 +14,25 @@ interface MobileMarkdownProps {
 function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScrollY = 0, onScroll }: MobileMarkdownProps) {
   const webViewRef = useRef<WebView>(null);
   const onScrollRef = useRef(onScroll);
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   const prevTrigger = useRef(searchTrigger);
 
+  // Kept in a ref so scroll restoration never rebuilds the HTML source
+  const initialScrollYRef = useRef(initialScrollY);
+  initialScrollYRef.current = initialScrollY;
+
   useEffect(() => {
     onScrollRef.current = onScroll;
   }, [onScroll]);
+
+  const handleLoadEnd = () => {
+    const y = Number(initialScrollYRef.current) || 0;
+    if (y > 0) {
+      webViewRef.current?.injectJavaScript(`setTimeout(function(){ window.scrollTo(0, ${y}); }, 50); true;`);
+    }
+  };
 
   // Inject search query whenever it changes
   useEffect(() => {
@@ -63,14 +74,23 @@ function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScroll
       <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension/lib/index.umd.js"></script>
       <!-- Scroll Sync Script -->
       <script>
-        window.addEventListener('scroll', () => {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scroll', y: window.scrollY }));
-        });
-        window.onload = () => {
-          setTimeout(() => {
-            window.scrollTo(0, ${initialScrollY});
-          }, 50);
-        };
+        // Coalesce scroll events: one trailing post per 150ms window, which also
+        // delivers the final resting position once scrolling stops.
+        (function () {
+          let lastPosted = -1;
+          let timer = null;
+          const flush = () => {
+            timer = null;
+            const y = window.scrollY;
+            if (Math.abs(y - lastPosted) > 4) {
+              lastPosted = y;
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scroll', y }));
+            }
+          };
+          window.addEventListener('scroll', () => {
+            if (timer === null) timer = setTimeout(flush, 150);
+          }, { passive: true });
+        })();
       </script>
 
       <style>
@@ -177,7 +197,7 @@ function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScroll
       </script>
     </body>
     </html>
-  `, [content, initialScrollY, isDark]);
+  `, [content, isDark]);
   const webViewSource = useMemo(() => ({ html: htmlContent }), [htmlContent]);
 
   if (!content) return null;
@@ -191,6 +211,7 @@ function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScroll
         scalesPageToFit={false}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
+        onLoadEnd={handleLoadEnd}
         onMessage={(event) => {
           try {
             const data = JSON.parse(event.nativeEvent.data);
@@ -215,6 +236,5 @@ export default memo(MobileMarkdown, (previous, next) => (
   previous.content === next.content &&
   previous.searchQuery === next.searchQuery &&
   previous.searchTrigger === next.searchTrigger &&
-  previous.initialScrollY === next.initialScrollY &&
   previous.onScroll === next.onScroll
 ));

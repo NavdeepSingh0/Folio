@@ -30,7 +30,7 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
   const [localPdfPath, setLocalPdfPath] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   const iconColor = isDark ? '#E0E0E0' : '#121212';

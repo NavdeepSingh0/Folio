@@ -43,7 +43,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [username, setUsername] = useState('Alex');
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   const iconColor = isDark ? '#E0E0E0' : '#121212';
@@ -90,7 +90,8 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const { initialized, session } = useAuthStore();
+  const initialized = useAuthStore(s => s.initialized);
+  const session = useAuthStore(s => !!s.session);
 
   useFocusEffect(useCallback(() => {
     setUsername(storage.getString('user.username') || 'Alex');

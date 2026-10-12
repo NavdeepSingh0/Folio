@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   Text,
@@ -15,8 +15,6 @@ import Animated, {
 import { useThemeStore } from '../../src/store/themeStore';
 import { ArrowLeft, Plus, Search, Paperclip, MessageSquare } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MobileMarkdown from './mobile/MobileMarkdown';
-import { useScrollStore } from '../../src/store/scrollStore';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
@@ -43,6 +41,18 @@ interface Props {
   activeCardContent: React.ReactNode;
 }
 
+// First ~2KB of the note as plain text, with images / data URIs stripped
+function buildPreview(note: Note): string {
+  const src = note.content || note.content_preview || '';
+  return src
+    .slice(0, 4000)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/<img[^>]*>/gi, '')
+    .replace(/data:[^\s)"']+/g, '')
+    .slice(0, 2000)
+    .trim();
+}
+
 // ─── NoteCard ────────────────────────────────────────────────────────────────
 function NoteCard({
   note,
@@ -53,13 +63,20 @@ function NoteCard({
   onSelect: () => void;
   onDismiss: () => void;
 }) {
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sys = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sys === 'dark');
   const iconColor = isDark ? '#E0E0E0' : '#121212';
 
   const translateY = useSharedValue(0);
-  const scrollY = useScrollStore(s => s.positions[note.id.toString()]) || 0;
+  // Lightweight text preview instead of a WebView per card
+  const previewText = React.useMemo(() => buildPreview(note), [note.content, note.content_preview]);
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: CARD_SCALE },
+      { translateY: translateY.value }
+    ]
+  }));
 
   const panGesture = Gesture.Pan()
     .activeOffsetY([-10, 10]) // Require vertical movement to activate, allows horizontal scroll to pass through
@@ -98,12 +115,7 @@ function NoteCard({
               borderRadius: 28,
               overflow: 'hidden',
             },
-            useAnimatedStyle(() => ({
-              transform: [
-                { scale: CARD_SCALE },
-                { translateY: translateY.value }
-              ]
-            }))
+            cardAnimatedStyle
           ]}
         >
         <View style={{ flex: 1, backgroundColor: isDark ? '#121212' : '#FFFFFF' }}>
@@ -125,15 +137,11 @@ function NoteCard({
             </View>
             
             <View style={{ flex: 1 }} pointerEvents="none">
-              {note.content ? (
-                <MobileMarkdown content={note.content} initialScrollY={scrollY} />
-              ) : (
-                <View style={{ padding: 24 }}>
-                  <Text style={{ fontSize: 14, lineHeight: 22, color: isDark ? '#888' : '#666' }} numberOfLines={15}>
-                    {note.content_preview || "No content..."}
-                  </Text>
-                </View>
-              )}
+              <View style={{ padding: 24 }}>
+                <Text style={{ fontSize: 14, lineHeight: 22, color: isDark ? '#888' : '#666' }} numberOfLines={30}>
+                  {previewText || "No content..."}
+                </Text>
+              </View>
             </View>
         </View>
       </Animated.View>
@@ -168,8 +176,18 @@ export default function NoteStackViewer({
   // switcherProgress: 0 = Fullscreen, 1 = Switcher Open
   const switcherProgress = useSharedValue(isOpen ? 1 : 0);
 
+  // Cards (and their WebViews) are mounted only while the switcher is open,
+  // and stay mounted through the 300ms close animation before unmounting.
+  const [cardsMounted, setCardsMounted] = useState(isOpen);
+
   useEffect(() => {
     switcherProgress.value = withTiming(isOpen ? 1 : 0, { duration: 300 });
+    if (isOpen) {
+      setCardsMounted(true);
+      return;
+    }
+    const t = setTimeout(() => setCardsMounted(false), 300);
+    return () => clearTimeout(t);
   }, [isOpen]);
 
   const activeIndex = orderedNotes.findIndex(n => n.id.toString() === activeNoteId?.toString());
@@ -178,7 +196,11 @@ export default function NoteStackViewer({
   useEffect(() => {
     if (isOpen) {
       const targetX = Math.max(0, activeIndex) * STEP;
-      scrollRef.current?.scrollTo({ x: targetX, animated: false });
+      // Defer until the freshly mounted cards have laid out
+      const raf = requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ x: targetX, animated: false });
+      });
+      return () => cancelAnimationFrame(raf);
     }
   }, [isOpen]);
 
@@ -230,7 +252,7 @@ export default function NoteStackViewer({
               alignItems: 'center',
             }}
           >
-            {orderedNotes.map((note) => {
+            {(isOpen || cardsMounted) && orderedNotes.map((note) => {
               return (
                 <NoteCard
                   key={note.id.toString()}

@@ -25,7 +25,7 @@ export default function ChatBottomSheet({ fileId, isOpen, onClose }: ChatBottomS
   const [isMounted, setIsMounted] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   const iconColor = isDark ? '#E0E0E0' : '#121212';

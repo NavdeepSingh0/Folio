@@ -17,7 +17,7 @@ export default function FolderScreen() {
   const [folder, setFolder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   const iconColor = isDark ? '#E0E0E0' : '#121212';

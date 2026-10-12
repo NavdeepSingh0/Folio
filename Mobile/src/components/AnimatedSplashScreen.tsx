@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function AnimatedSplashScreen({ onFinish }: Props) {
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
 

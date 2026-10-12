@@ -59,14 +59,16 @@ const darkTheme = vars({
 });
 
 export default function Layout() {
-  const { theme } = useThemeStore();
+  const theme = useThemeStore(s => s.theme);
   const sysColorScheme = useSystemColorScheme();
   const isDark = theme === 'dark' || (theme === 'system' && sysColorScheme === 'dark');
   const [splashFinished, setSplashFinished] = useState(false);
 
   const router = useRouter();
   const segments = useSegments();
-  const { initialized, initialize, session } = useAuthStore();
+  const initialized = useAuthStore(s => s.initialized);
+  const initialize = useAuthStore(s => s.initialize);
+  const session = useAuthStore(s => !!s.session);
 
   useEffect(() => {
     initialize();
