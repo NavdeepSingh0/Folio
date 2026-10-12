@@ -13,6 +13,11 @@ if not DATABASE_URL:
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# SQLAlchemy 2.1 changed the default driver for "postgresql://" to psycopg (v3).
+# We ship psycopg2-binary, so pin the driver explicitly.
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 # Supabase Session Pooler (IPv4 compatible, no cold starts)
 # PgBouncer in session mode requires prepared_statement_cache_size=0
 engine = create_engine(
