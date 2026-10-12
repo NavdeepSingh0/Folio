@@ -11,6 +11,7 @@ export function Home() {
   const [activeWidget, setActiveWidget] = useState(0);
   const [pinnedFolders, setPinnedFolders] = useState<any[]>(() => cache.get<any[]>('home_pinned') || []);
   const [recentNotes, setRecentNotes] = useState<any[]>(() => cache.get<any[]>('home_recent') || []);
+  const [loadError, setLoadError] = useState(false);
 
 
   useEffect(() => {
@@ -22,18 +23,19 @@ export function Home() {
   }, []);
 
   const loadDashboardData = async () => {
+    setLoadError(false);
     try {
-      const folders = await api.getFolders();
+      const [folders, files] = await Promise.all([api.getFolders(), api.getAllFiles(6)]);
       const pinned = folders.filter((f: any) => f.is_pinned);
       setPinnedFolders(pinned);
       cache.set('home_pinned', pinned);
 
-      const files = await api.getAllFiles(6);
       const recent = files.slice(0, 6); // Top 6 most recent files
       setRecentNotes(recent);
       cache.set('home_recent', recent);
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
+      setLoadError(true);
     }
   };
 
@@ -87,6 +89,11 @@ export function Home() {
                       </div>
                     </button>
                   ))
+                ) : loadError ? (
+                  <div className="col-span-full py-8 text-center text-sm text-muted-foreground bg-card border border-dashed border-border rounded-xl">
+                    Couldn't load your library.{" "}
+                    <button onClick={loadDashboardData} className="text-primary hover:underline underline-offset-4">Retry</button>
+                  </div>
                 ) : (
                   <div className="col-span-full py-8 text-center text-sm text-muted-foreground bg-card border border-dashed border-border rounded-xl">
                     No pinned folders yet. Pin them from the Library!
@@ -117,6 +124,11 @@ export function Home() {
                       <span className="text-[12px] text-muted-foreground whitespace-nowrap ml-4">{note.status}</span>
                     </button>
                   ))
+                ) : loadError ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">
+                    Couldn't load recent notes.{" "}
+                    <button onClick={loadDashboardData} className="text-primary hover:underline underline-offset-4">Retry</button>
+                  </div>
                 ) : (
                   <div className="py-12 text-center text-sm text-muted-foreground">
                     No recent notes found.

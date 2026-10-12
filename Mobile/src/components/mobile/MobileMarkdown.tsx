@@ -2,6 +2,10 @@ import React, { memo, useEffect, useMemo, useRef } from 'react';
 import { View, ActivityIndicator, useColorScheme as useSystemColorScheme } from 'react-native';
 import { useThemeStore } from '../../store/themeStore';
 import { WebView } from 'react-native-webview';
+import { markedJs } from '../../assets/webview/marked';
+import { markedKatexJs } from '../../assets/webview/markedKatex';
+import { hljsJs } from '../../assets/webview/hljs';
+import { hljsCss } from '../../assets/webview/hljsCss';
 
 interface MobileMarkdownProps {
   content: string;
@@ -61,17 +65,17 @@ function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScroll
       <!-- GitHub Markdown CSS -->
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.0/github-markdown-${isDark ? 'dark' : 'light'}.min.css">
       
-      <!-- Highlight.js (Dark theme for code blocks) -->
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+      <!-- Highlight.js 11.9.0 (bundled locally, dark theme for code blocks) -->
+      <style>${hljsCss}</style>
+      <script>${hljsJs}</script>
       
-      <!-- KaTeX -->
+      <!-- KaTeX (pinned CDN; its fonts make inlining heavy). Math falls back to plain text if it fails to load. -->
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
       <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
       
-      <!-- Marked.js + KaTeX extension -->
-      <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-      <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension/lib/index.umd.js"></script>
+      <!-- Marked.js 12.0.2 + KaTeX extension 5.0.1 (bundled locally) -->
+      <script>${markedJs}</script>
+      <script>${markedKatexJs}</script>
       <!-- Scroll Sync Script -->
       <script>
         // Coalesce scroll events: one trailing post per 150ms window, which also
@@ -154,7 +158,9 @@ function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScroll
         const rawMarkdown = ${JSON.stringify(content)};
         
         // Setup marked with KaTeX
-        marked.use(window.markedKatex({ throwOnError: false }));
+        if (window.katex && window.markedKatex) {
+          marked.use(window.markedKatex({ throwOnError: false }));
+        }
         
         // Parse into a detached template, sanitize, then inject
         const tpl = document.createElement('template');

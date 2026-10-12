@@ -11,6 +11,9 @@ interface AuthState {
   signOut: () => Promise<void>;
 }
 
+// Single auth listener; re-running initialize replaces it instead of stacking another.
+let authSubscription: { unsubscribe: () => void } | null = null;
+
 export const useAuthStore = create<AuthState>((set) => ({
   session: null,
   user: null,
@@ -25,9 +28,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ initialized: true }); // Never leave the app bricked
     }
     
-    supabase.auth.onAuthStateChange((_event, session) => {
+    authSubscription?.unsubscribe();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       set({ session, user: session?.user || null });
     });
+    authSubscription = data.subscription;
   },
   signOut: async () => {
     await supabase.auth.signOut();

@@ -1,6 +1,6 @@
 // Refactored with NativeWind
 import React, { useState, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, RefreshControl, DimensionValue } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Folder, FileText, ArrowRight } from 'lucide-react-native';
 import { useAuthStore } from '../src/store/authStore';
@@ -12,7 +12,7 @@ import { useColorScheme as useSystemColorScheme } from 'react-native';
 import { useThemeStore } from '../src/store/themeStore';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-function SkeletonBlock({ width, height, className }: { width: number | string; height: number; className?: string }) {
+function SkeletonBlock({ width, height, className }: { width: DimensionValue; height: number; className?: string }) {
   return <View style={{ width, height }} className={`bg-muted rounded-lg ${className}`} />;
 }
 

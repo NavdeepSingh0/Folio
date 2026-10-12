@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
-  View, Text, TouchableOpacity, TextInput, useColorScheme as useSystemColorScheme
+  View, Text, TouchableOpacity, TextInput, useColorScheme as useSystemColorScheme, DimensionValue
 } from 'react-native';
 import { useThemeStore } from '../../src/store/themeStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +19,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useScrollStore } from '../../src/store/scrollStore';
 
 // Skeleton blocks
-function SkeletonBlock({ width, height, className }: { width: number | string; height: number; className?: string }) {
+function SkeletonBlock({ width, height, className }: { width: DimensionValue; height: number; className?: string }) {
   return <View style={{ width, height }} className={`bg-muted rounded-md ${className}`} />;
 }
 function NoteReaderSkeleton() {

@@ -14,21 +14,6 @@ import ChatInput from "../components/ChatInput";
 // large notes (inline images) never fill the storage quota.
 const stripBody = ({ markdown_content: _body, ...meta }: any) => meta;
 
-const SAMPLE_MARKDOWN = `
-# Newton's Laws of Motion
-
-Classical mechanics is governed by three fundamental laws formulated by Sir Isaac Newton.
-
-## First Law: Inertia
-An object at rest remains at rest, and an object in motion remains in motion at constant speed and in a straight line unless acted on by an unbalanced force.
-
-## Second Law: F = ma
-The acceleration of an object depends on the mass of the object and the amount of force applied. 
-
-## Third Law: Action & Reaction
-Whenever one object exerts a force on a second object, the second object exerts an equal and opposite force on the first.
-`;
-
 type ChatMessage = { id: number; role: "user" | "model"; text: string; isError?: boolean };
 
 let chatMessageSeq = 0;
@@ -689,7 +674,7 @@ export function StudyScreen() {
                       {chatAttachments.length > 0 && (
                         <div className="flex items-center gap-2 overflow-x-auto pb-2">
                           {chatAttachments.map((f, i) => (
-                            <div key={i} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-md text-xs border border-border">
+                            <div key={`${f.name}-${f.size}-${f.lastModified}`} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-md text-xs border border-border">
                               <span className="truncate max-w-[100px]">{f.name}</span>
                               <button onClick={() => setChatAttachments(prev => prev.filter((_, idx) => idx !== i))}><X className="w-3 h-3 hover:text-red-500" /></button>
                             </div>

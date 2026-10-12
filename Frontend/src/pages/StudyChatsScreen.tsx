@@ -6,17 +6,20 @@ import { api } from "../api";
 export function StudyChatsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [chats, setChats] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     loadChats();
   }, []);
 
   const loadChats = async () => {
+    setLoadError(false);
     try {
       const data = await api.getChatHistory();
-      setChats(data);
+      setChats(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to load chat history:", error);
+      setLoadError(true);
     }
   };
 
@@ -48,7 +51,12 @@ export function StudyChatsScreen() {
         <div className="flex-1 overflow-y-auto pr-2">
           <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
             
-            {chats.length > 0 ? (
+            {loadError && chats.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground">
+                Couldn't load chat history.{" "}
+                <button onClick={loadChats} className="text-primary hover:underline underline-offset-4">Retry</button>
+              </div>
+            ) : chats.length > 0 ? (
               chats.map((chat) => (
                 <button 
                   key={chat.id} 

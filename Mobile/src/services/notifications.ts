@@ -10,6 +10,8 @@ const LAST_SCHEDULED_KEY = 'notifications.lastScheduled';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -96,7 +98,7 @@ export async function setupLocalNotifications() {
       await Notifications.scheduleNotificationAsync({
         identifier: `${STUDY_REMINDER_PREFIX}${i}-12`,
         content: { title: "Folio 📚", body: msg12, sound: true },
-        trigger: { date: d12, type: 'date' as const },
+        trigger: { date: d12, type: Notifications.SchedulableTriggerInputTypes.DATE },
       });
     }
 
@@ -104,7 +106,7 @@ export async function setupLocalNotifications() {
       await Notifications.scheduleNotificationAsync({
         identifier: `${STUDY_REMINDER_PREFIX}${i}-19`,
         content: { title: "Folio 🌙", body: msg19, sound: true },
-        trigger: { date: d19, type: 'date' as const },
+        trigger: { date: d19, type: Notifications.SchedulableTriggerInputTypes.DATE },
       });
     }
   }
@@ -126,7 +128,7 @@ export async function scheduleExamReminder(examDate: Date, subjectName: string) 
         body: `Your ${subjectName} exam is in 3 days! Time to hit the books hard.`,
         sound: true,
       },
-      trigger: { date: reminderDate, type: 'date' as const },
+      trigger: { date: reminderDate, type: Notifications.SchedulableTriggerInputTypes.DATE },
     });
   }
 }

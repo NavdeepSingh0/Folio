@@ -16,8 +16,8 @@ export function KnowledgeBaseScreen() {
   }, []);
 
   const filtered = facts.filter(f =>
-    f.concept.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    f.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (f.concept ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (f.description ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

@@ -1,6 +1,6 @@
 // Refactored with NativeWind
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, RefreshControl, useColorScheme as useSystemColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, RefreshControl, useColorScheme as useSystemColorScheme, DimensionValue } from 'react-native';
 import { useThemeStore } from '../../src/store/themeStore';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +12,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import MobileSidebar from '../../src/components/MobileSidebar';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-function SkeletonBlock({ width, height, className }: { width: number | string; height: number; className?: string }) {
+function SkeletonBlock({ width, height, className }: { width: DimensionValue; height: number; className?: string }) {
   return <View style={{ width, height }} className={`bg-muted rounded-[10px] ${className}`} />;
 }
 
@@ -208,7 +208,6 @@ export default function LibraryScreen() {
               keyExtractor={(item) => item.id.toString()}
               showsVerticalScrollIndicator={false}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={iconColor} />}
-              estimatedItemSize={76}
               ItemSeparatorComponent={() => <View className="h-[14px]" />}
               ListFooterComponent={() => <View className="h-[120px]" />}
               renderItem={({ item, index }) => (
