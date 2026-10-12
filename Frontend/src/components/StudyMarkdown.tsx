@@ -57,11 +57,15 @@ function MarkdownImage({ node: _node, src, alt, title }: ComponentPropsWithoutRe
   );
 }
 
+// Hoisted so ReactMarkdown gets stable references across renders
+const remarkPlugins = [remarkGfm];
+const components = { img: MarkdownImage };
+
 function StudyMarkdown({ content, zoom }: StudyMarkdownProps) {
   const prepared = useMemo(() => convertHtmlImages(content), [content]);
   return (
-    <article className="markdown-body transition-all bg-transparent" style={{ fontSize: `${zoom}%` }}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={transformUrl} components={{ img: MarkdownImage }}>
+    <article className="markdown-body bg-transparent" style={{ fontSize: `${zoom}%` }}>
+      <ReactMarkdown remarkPlugins={remarkPlugins} urlTransform={transformUrl} components={components}>
         {prepared}
       </ReactMarkdown>
     </article>

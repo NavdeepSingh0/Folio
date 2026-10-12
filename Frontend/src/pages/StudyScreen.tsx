@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "../components/AppLayout";
-import { MessageSquare, Paperclip, Send, Minimize2, Edit, Edit2, Eye, Info, X, FileText, File as FileIcon, Plus, Loader2, ChevronRight } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MessageSquare, Paperclip, Minimize2, Edit, Edit2, Eye, Info, X, FileText, File as FileIcon, Plus, Loader2, ChevronRight } from "lucide-react";
 import { api } from "../api";
 import { cache } from "../lib/cache";
 import "github-markdown-css/github-markdown.css";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import StudyMarkdown from "../components/StudyMarkdown";
+import { NoteEditorPane } from "../components/NoteEditorPane";
+import ChatBubble from "../components/ChatBubble";
+import ChatInput from "../components/ChatInput";
 
 // File metadata for the localStorage cache; the markdown body is left out so
 // large notes (inline images) never fill the storage quota.
@@ -29,7 +29,9 @@ The acceleration of an object depends on the mass of the object and the amount o
 Whenever one object exerts a force on a second object, the second object exerts an equal and opposite force on the first.
 `;
 
-type ChatMessage = { role: "user" | "model"; text: string; isError?: boolean };
+type ChatMessage = { id: number; role: "user" | "model"; text: string; isError?: boolean };
+
+let chatMessageSeq = 0;
 
 export function StudyScreen() {
   const [searchParams] = useSearchParams();
@@ -37,12 +39,15 @@ export function StudyScreen() {
   const fileId = searchParams.get("file");
 
   const [chatOpen, setChatOpen] = useState(false);
-  const [message, setMessage] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
-  const [markdown, setMarkdown] = useState("");
-  const [previewMarkdown, setPreviewMarkdown] = useState("");
+  // The live editor buffer lives in NoteEditorPane; this ref mirrors it for saves.
+  const markdownRef = useRef("");
+  const [initialContent, setInitialContent] = useState("");
+  // Bumped on every load so NoteEditorPane remounts with the new content
+  const [loadVersion, setLoadVersion] = useState(0);
+  const [wordCount, setWordCount] = useState(0);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [fileData, setFileData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,7 +59,7 @@ export function StudyScreen() {
   // Content the editor buffer was last loaded from or saved as. The buffer is
   // "dirty" when it differs, and dirty buffers are never overwritten by loads.
   const [baselineMarkdown, setBaselineMarkdown] = useState("");
-  const isDirty = markdown !== baselineMarkdown;
+  const [isDirty, setIsDirty] = useState(false);
   const isDirtyRef = useRef(false);
   const fileIdRef = useRef(fileId);
   useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
@@ -78,11 +83,6 @@ export function StudyScreen() {
     if (id === fileId || !confirmDiscard()) return;
     navigate(`/study?file=${id}`);
   };
-
-  useEffect(() => {
-    const t = setTimeout(() => setPreviewMarkdown(markdown), 150);
-    return () => clearTimeout(t);
-  }, [markdown]);
 
   useEffect(() => {
     if (fileId && fileData && fileData.name) {
@@ -161,6 +161,7 @@ export function StudyScreen() {
     // Switching files starts a fresh buffer (unsaved edits were already
     // confirmed-discarded by the navigation guard).
     isDirtyRef.current = false;
+    setIsDirty(false);
     setIsEditing(false);
     setEditingName(false);
     setPreviewAttachment(null);
@@ -169,16 +170,15 @@ export function StudyScreen() {
       const content = data.markdown_content || "No content extracted.";
       setFileData(data);
       setEditNameValue(data.name || "");
-      setMarkdown(content);
-      setPreviewMarkdown(content);
-      setBaselineMarkdown(content);
+      showMessage(content);
     };
 
-    const showMessage = (text: string) => {
-      setMarkdown(text);
-      setPreviewMarkdown(text);
+    function showMessage(text: string) {
+      markdownRef.current = text;
+      setInitialContent(text);
       setBaselineMarkdown(text);
-    };
+      setLoadVersion(v => v + 1);
+    }
 
     // 1. Instant metadata from cache. Note bodies are never cached in
     // localStorage, so content always comes from the network.
@@ -221,10 +221,10 @@ export function StudyScreen() {
   }, [fileId, navigate]);
 
   const handleSave = async () => {
-    if (!fileId || !isDirty) return;
+    if (!fileId || !isDirtyRef.current) return;
     // Capture what is being saved so a tab switch mid-request can't redirect it
     const id = fileId;
-    const content = markdown;
+    const content = markdownRef.current;
     const savedFileData = fileData;
     try {
       setSaveStatus("Saving...");
@@ -246,17 +246,20 @@ export function StudyScreen() {
     }
   };
 
-  const handleSend = async () => {
-    const text = message.trim();
-    if (!fileId || !text || isSending) return;
+  const handleSend = (draft: string) => {
+    const text = draft.trim();
+    if (!fileId || !text || isSending) return false;
+    void sendMessage(fileId, text);
+    return true;
+  };
+
+  const sendMessage = async (id: string, text: string) => {
     // Bind the reply to the file it was asked about, even if the user switches tabs
-    const id = fileId;
     const attachments = [...chatAttachments];
-    setMessage("");
     setChatAttachments([]);
 
-    const append = (msg: ChatMessage) =>
-      setChatByFile(prev => ({ ...prev, [id]: [...(prev[id] ?? []), msg] }));
+    const append = (msg: Omit<ChatMessage, "id">) =>
+      setChatByFile(prev => ({ ...prev, [id]: [...(prev[id] ?? []), { ...msg, id: ++chatMessageSeq }] }));
 
     append({ role: "user", text: attachments.length > 0 ? `${text}\n[Attachments sent]` : text });
     setSendingByFile(prev => ({ ...prev, [id]: true }));
@@ -309,25 +312,24 @@ export function StudyScreen() {
     setEditingName(false);
   };
 
-  const handleImageUpload = async (file: File, cursorStart: number, cursorEnd: number) => {
-    if (!fileId) return;
-    
-    const placeholder = `![Uploading ${file.name}...]()`;
-    const newMarkdown = markdown.substring(0, cursorStart) + placeholder + markdown.substring(cursorEnd);
-    setMarkdown(newMarkdown);
-    
-    try {
-      const uploadedAtt = await api.uploadAttachment(fileId, file);
-      const imgMarkdown = `![${file.name}](${uploadedAtt.public_url})`;
-      setMarkdown(prev => prev.replace(placeholder, imgMarkdown));
-      setPanelAttachments(prev => [uploadedAtt, ...prev]);
-    } catch (err) {
-      console.error("Failed to upload image", err);
-      setMarkdown(prev => prev.replace(placeholder, ""));
-      setSaveStatus("Error uploading image");
-      setTimeout(() => setSaveStatus(null), 2000);
-    }
+  // Uploads an image dropped/pasted into the editor and returns its URL;
+  // NoteEditorPane handles the placeholder insert and replacement.
+  const uploadEditorImage = async (file: File) => {
+    if (!fileId) throw new Error("No file loaded");
+    const uploadedAtt = await api.uploadAttachment(fileId, file);
+    setPanelAttachments(prev => [uploadedAtt, ...prev]);
+    return uploadedAtt.public_url as string;
   };
+
+  const handleUploadError = () => {
+    setSaveStatus("Error uploading image");
+    setTimeout(() => setSaveStatus(null), 2000);
+  };
+
+  const handleDirtyChange = useCallback((dirty: boolean) => {
+    isDirtyRef.current = dirty;
+    setIsDirty(dirty);
+  }, []);
 
   return (
     <AppLayout>
@@ -430,7 +432,7 @@ export function StudyScreen() {
         {/* Optional Doc Info Bar */}
         {showDocInfo && (
           <div className="bg-muted px-6 py-2 border-b border-border flex items-center gap-6 text-xs text-muted-foreground">
-            <span><strong>Words:</strong> {markdown.split(/\s+/).length}</span>
+            <span><strong>Words:</strong> {wordCount}</span>
             <span><strong>Created:</strong> {fileData?.created_at ? new Date(fileData.created_at).toLocaleDateString() : 'Unknown'}</span>
           </div>
         )}
@@ -443,74 +445,20 @@ export function StudyScreen() {
                 <div className="flex-1 flex items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
-              ) : isEditing ? (
-                // Split view for editing
-                <PanelGroup direction="horizontal">
-                  <Panel minSize={30}>
-                    <textarea 
-                      value={markdown}
-                      onChange={(e) => setMarkdown(e.target.value)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                          const file = e.dataTransfer.files[0];
-                          if (file.type.startsWith('image/')) {
-                            const start = e.currentTarget.selectionStart;
-                            const end = e.currentTarget.selectionEnd;
-                            handleImageUpload(file, start, end);
-                          }
-                        }
-                      }}
-                      onPaste={(e) => {
-                        if (e.clipboardData.files && e.clipboardData.files.length > 0) {
-                          const file = e.clipboardData.files[0];
-                          if (file.type.startsWith('image/')) {
-                            e.preventDefault();
-                            const start = e.currentTarget.selectionStart;
-                            const end = e.currentTarget.selectionEnd;
-                            handleImageUpload(file, start, end);
-                          }
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                          e.preventDefault();
-                          handleSave();
-                        }
-                      }}
-                      style={{ fontSize: `${zoom}%` }}
-                      className="w-full h-full p-6 bg-surface border-r border-border font-mono resize-none focus:outline-none"
-                    />
-                  </Panel>
-                  <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 cursor-col-resize" />
-                  <Panel minSize={30}>
-                    <div className="h-full overflow-y-auto px-8 py-8 bg-background">
-                      <StudyMarkdown content={previewMarkdown} zoom={zoom} />
-                    </div>
-                  </Panel>
-                </PanelGroup>
-              ) : showSplitFile ? (
-                // Multi-file Split Screen View
-                <PanelGroup direction="horizontal">
-                  <Panel minSize={30}>
-                    <div className="h-full overflow-y-auto px-6 py-8 bg-background">
-                      <div className="max-w-3xl mr-auto">
-                        <StudyMarkdown content={previewMarkdown} zoom={zoom} />
-                      </div>
-                    </div>
-                  </Panel>
-                  <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 cursor-col-resize" />
-                  <Panel minSize={30}>
-                    <div className="h-full overflow-y-auto px-6 py-8 bg-surface flex flex-col items-center justify-center text-muted-foreground">
-                        <FileText className="w-12 h-12 mb-4 opacity-20" />
-                        <p>No secondary file selected</p>
-                    </div>
-                  </Panel>
-                </PanelGroup>
               ) : (
-                // Reading View
-                <div className="h-full overflow-y-auto px-8 py-12 relative scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  {!chatOpen && !showAttachments && (
+                <NoteEditorPane
+                  key={`${fileId}-${loadVersion}`}
+                  initialContent={initialContent}
+                  baseline={baselineMarkdown}
+                  mode={isEditing ? "edit" : showSplitFile ? "split" : "read"}
+                  zoom={zoom}
+                  contentRef={markdownRef}
+                  onDirtyChange={handleDirtyChange}
+                  onWordCount={setWordCount}
+                  onSave={handleSave}
+                  uploadImage={uploadEditorImage}
+                  onUploadError={handleUploadError}
+                  readOverlay={!chatOpen && !showAttachments && (
                     <button 
                       onClick={() => setChatOpen(true)}
                       className="absolute top-8 right-8 flex items-center gap-2 text-sm font-medium text-primary bg-primary/10 px-4 py-2 rounded-full hover:bg-primary/20 transition-colors"
@@ -519,10 +467,7 @@ export function StudyScreen() {
                       Study Assistant
                     </button>
                   )}
-                  <div className="max-w-4xl mr-auto">
-                    <StudyMarkdown content={previewMarkdown} zoom={zoom} />
-                  </div>
-                </div>
+                />
               )}
 
             </div>
@@ -683,14 +628,8 @@ export function StudyScreen() {
                       <div className="bg-muted p-4 rounded-2xl rounded-tl-sm self-start max-w-[85%] text-sm border border-border">
                         Hello! I've loaded the context for <strong>{fileData?.name || "this document"}</strong>. What would you like to know?
                       </div>
-                      {chatHistory.map((msg, i) => (
-                        <div key={i} className={`p-4 rounded-2xl text-sm border border-border max-w-[85%] ${
-                          msg.role === 'model' 
-                            ? 'bg-muted rounded-tl-sm self-start' 
-                            : 'bg-primary text-primary-foreground rounded-tr-sm self-end'
-                        }`}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
-                        </div>
+                      {chatHistory.map((msg) => (
+                        <ChatBubble key={msg.id} role={msg.role} text={msg.text} />
                       ))}
                       {isSending && (
                         <div className="p-4 rounded-2xl bg-muted rounded-tl-sm self-start text-sm border border-border">
@@ -711,33 +650,12 @@ export function StudyScreen() {
                         </div>
                       )}
                       <div className="relative flex items-center">
-                        <button 
-                          onClick={() => fileInputRef.current?.click()}
-                          className="absolute left-2 p-2 text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <Paperclip className="w-4 h-4" />
-                        </button>
                         <input type="file" multiple className="hidden" ref={fileInputRef} onChange={(e) => {
                           if (e.target.files) {
                             setChatAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
                           }
                         }} />
-                        <input 
-                          type="text" 
-                          placeholder="Ask a question..." 
-                          value={message}
-                          onChange={(e) => setMessage(e.target.value)}
-                          className="w-full bg-background border border-border rounded-xl pl-10 pr-12 py-3.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSend();
-                          }}
-                        />
-                        <button 
-                          onClick={handleSend}
-                          className="absolute right-2 p-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
+                        <ChatInput onSend={handleSend} onAttachClick={() => fileInputRef.current?.click()} />
                       </div>
                     </div>
                   </div>
