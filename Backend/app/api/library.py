@@ -7,6 +7,7 @@ import uuid
 from ..models.database import get_db
 from ..models import schema, pydantic_schemas
 from app.utils.supabase_client import supabase
+from app.services.image_extraction import extract_inline_images, store_attachment
 
 from app.utils.auth_deps import get_current_user_id  # re-exported for other routers
 from app.utils.limits import MAX_ATTACHMENT_BYTES, ATTACHMENT_EXTENSIONS, read_limited
@@ -125,13 +126,15 @@ def get_unassigned_files(db: Session = Depends(get_db), user_id: int = Depends(g
         schema.File.folder_id == None
     ).order_by(schema.File.created_at.desc()).all()
 
-@router.put("/files/{file_id}", response_model=pydantic_schemas.FileResponse)
+@router.put("/files/{file_id}", response_model=pydantic_schemas.FileSummaryResponse)
 def update_file(file_id: int, file_update: pydantic_schemas.FileUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     db_file = db.query(schema.File).filter(schema.File.id == file_id, schema.File.user_id == user_id).first()
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
     
     update_data = file_update.model_dump(exclude_unset=True)
+    if update_data.get("markdown_content"):
+        update_data["markdown_content"] = extract_inline_images(db, user_id, file_id, update_data["markdown_content"])
     for key, value in update_data.items():
         setattr(db_file, key, value)
         
@@ -208,30 +211,14 @@ def upload_attachment(
         raise HTTPException(status_code=413, detail="Attachment exceeds the 20 MB limit")
     storage_path = f"attachments/{user_id}/{file_id}/{uuid.uuid4()}.{file_ext}"
 
-    # Upload to Supabase Storage
+    # Upload to Supabase Storage and save to DB
     try:
-        supabase.storage.from_("studyforge-storage").upload(
-            file=file_bytes,
-            path=storage_path,
-            file_options={"content-type": file.content_type}
+        new_attachment, res = store_attachment(
+            db, user_id, file_id, file.filename, file.content_type, file_bytes, storage_path
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload to storage: {str(e)}")
 
-    # Save to DB
-    new_attachment = schema.Attachment(
-        file_id=file_id,
-        filename=file.filename,
-        file_type=file.content_type,
-        file_size=len(file_bytes),
-        storage_path=storage_path
-    )
-    db.add(new_attachment)
-    db.commit()
-    db.refresh(new_attachment)
-
-    # Attach public URL to response
-    res = supabase.storage.from_("studyforge-storage").get_public_url(storage_path)
     response_data = pydantic_schemas.AttachmentResponse.model_validate(new_attachment)
     response_data.public_url = res
 

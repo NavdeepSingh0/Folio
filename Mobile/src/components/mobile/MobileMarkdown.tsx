@@ -176,6 +176,7 @@ function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScroll
         tpl.content.querySelectorAll('img').forEach((img) => {
           if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
           img.setAttribute('loading', 'lazy');
+          img.setAttribute('decoding', 'async');
           const fallback = () => {
             const alt = img.getAttribute('alt') || '';
             const span = document.createElement('span');

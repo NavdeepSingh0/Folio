@@ -11,6 +11,17 @@ const scopedKey = (key: string) => {
   return `${PREFIX}${userId}_${key}`;
 };
 
+// One-time cleanup: older builds cached full note bodies under study_file_*.
+// Drop any of those entries over 100 KB.
+const LARGE_ENTRY_CHARS = 100 * 1024;
+try {
+  Object.keys(localStorage).forEach(key => {
+    if (key.includes('study_file_') && (localStorage.getItem(key)?.length ?? 0) > LARGE_ENTRY_CHARS) {
+      localStorage.removeItem(key);
+    }
+  });
+} catch {}
+
 export const cache = {
   get: <T>(key: string): T | null => {
     try {

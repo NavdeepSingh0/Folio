@@ -10,6 +10,10 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import StudyMarkdown from "../components/StudyMarkdown";
 
+// File metadata for the localStorage cache; the markdown body is left out so
+// large notes (inline images) never fill the storage quota.
+const stripBody = ({ markdown_content: _body, ...meta }: any) => meta;
+
 const SAMPLE_MARKDOWN = `
 # Newton's Laws of Motion
 
@@ -176,25 +180,21 @@ export function StudyScreen() {
       setBaselineMarkdown(text);
     };
 
-    // 1. Instant Cache Load
-    const cachedFile = cache.get<any>(`study_file_${fileId}`);
-    if (cachedFile) {
-      applyFile(cachedFile);
-      setIsLoading(false);
-    } else {
-      // Drop the previous file's buffer so it can't be shown or saved under this id
-      setFileData(null);
-      setEditNameValue("");
-      showMessage("");
-      setIsLoading(true);
-    }
+    // 1. Instant metadata from cache. Note bodies are never cached in
+    // localStorage, so content always comes from the network.
+    const cachedMeta = cache.get<any>(`study_file_${fileId}`);
+    // Drop the previous file's buffer so it can't be shown or saved under this id
+    setFileData(cachedMeta && !("markdown_content" in cachedMeta) ? cachedMeta : null);
+    setEditNameValue(cachedMeta?.name || "");
+    showMessage("");
+    setIsLoading(true);
 
     setPanelAttachments(cache.get<any[]>(`study_attachments_${fileId}`) || []);
 
     // 2. Background Revalidation
     api.getFile(fileId, signal).then(data => {
       if (signal.aborted) return;
-      cache.set(`study_file_${fileId}`, data);
+      cache.set(`study_file_${fileId}`, stripBody(data));
       if (isDirtyRef.current) {
         // The user started editing the cached copy; keep their buffer.
         setFileData(data);
@@ -228,9 +228,10 @@ export function StudyScreen() {
     const savedFileData = fileData;
     try {
       setSaveStatus("Saving...");
+      // PUT returns a summary without the body; keep the local buffer.
       await api.updateFile(id, { markdown_content: content });
       if (savedFileData) {
-        cache.set(`study_file_${id}`, { ...savedFileData, markdown_content: content });
+        cache.set(`study_file_${id}`, stripBody(savedFileData));
       }
       if (fileIdRef.current === id) {
         setFileData((prev: any) => prev ? { ...prev, markdown_content: content } : prev);

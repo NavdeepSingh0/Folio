@@ -49,6 +49,7 @@ function MarkdownImage({ node: _node, src, alt, title }: ComponentPropsWithoutRe
       alt={alt ?? ""}
       title={title}
       loading="lazy"
+      decoding="async"
       style={{ maxWidth: "100%", height: "auto" }}
       className="rounded-[10px] my-4"
       onError={() => setFailed(true)}

@@ -9,6 +9,7 @@ from ..models.database import get_db
 from ..models import schema, pydantic_schemas
 from ..services.document_parser import extract_text_from_file, DocumentParseError, SUPPORTED_EXTENSIONS
 from ..services.ai_pipeline import extract_facts, AIError
+from ..services.image_extraction import extract_inline_images
 from .library import get_current_user_id
 
 logger = logging.getLogger(__name__)
@@ -139,6 +140,15 @@ def upload_file(
     db.add(db_file)
     db.commit()
     db.refresh(db_file)
+
+    # Move embedded base64 images into storage (needs the file id for the path)
+    if ext == ".md" and raw_text and "data:image" in raw_text:
+        rewritten = extract_inline_images(db, user_id, db_file.id, raw_text)
+        if rewritten != raw_text:
+            raw_text = rewritten
+            db_file.markdown_content = rewritten
+            db.commit()
+            db.refresh(db_file)
 
     # Background: AI fact extraction (needs GEMINI_API_KEY; failure marks the file failed)
     if status == "processing":
