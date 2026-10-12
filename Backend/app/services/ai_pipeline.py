@@ -1,71 +1,110 @@
 import os
-import json
-import google.generativeai as genai
+import logging
+from functools import lru_cache
 from typing import List, Dict, Any
 
-# Configure Gemini
-api_key = os.getenv("GEMINI_API_KEY")
-if api_key and api_key != "your_gemini_key_here":
-    genai.configure(api_key=api_key)
+from google import genai
+from google.genai import types
+from pydantic import BaseModel
 
-# We use Gemini 1.5 Flash for speed in formatting, and Pro for heavy analysis if needed
-model = genai.GenerativeModel('gemini-1.5-flash')
+logger = logging.getLogger(__name__)
 
-def generate_markdown_notes(raw_text: str) -> str:
-    """Takes raw OCR/PDF text and structures it into beautiful Markdown."""
-    if not api_key or api_key == "your_gemini_key_here":
-        # Mock response for hackathon if no API key is provided
-        return f"# Generated Notes\n\nThis is a mocked response since no GEMINI_API_KEY is set.\n\nRaw text preview: {raw_text[:200]}..."
+# Default to a current GA flash model; override with GEMINI_MODEL in .env
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+PLACEHOLDER_KEY = "your_gemini_key_here"
+REQUEST_TIMEOUT_MS = 120_000
+FACTS_MAX_OUTPUT_TOKENS = 8192
+FACTS_INPUT_CHAR_LIMIT = 15000
 
-    prompt = f"""
-    You are an expert study assistant. I am providing you with raw text extracted from a document.
-    Please format this raw text into a beautifully structured Markdown document suitable for studying.
-    
-    Guidelines:
-    1. Fix any OCR or extraction errors.
-    2. Use appropriate headings (##, ###).
-    3. Use bullet points for lists and bolding for key terms.
-    4. Keep the content completely faithful to the original text (do not add outside information).
-    5. Output ONLY the markdown. Do not wrap it in ```markdown tags.
-    
-    Raw Text:
-    {raw_text}
-    """
-    
-    try:
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        print(f"Gemini Markdown Error: {e}")
-        return f"# Error formatting document\n\n{raw_text}"
+
+class AIError(Exception):
+    """Base error for AI calls. str(e) is a short, user-safe reason."""
+
+
+class AINotConfiguredError(AIError):
+    """Raised when GEMINI_API_KEY is missing."""
+
+
+class FactOut(BaseModel):
+    concept: str
+    description: str
+    tags: str
+
+
+def _api_key() -> str | None:
+    key = os.getenv("GEMINI_API_KEY")
+    if not key or key == PLACEHOLDER_KEY:
+        return None
+    return key
+
+
+def get_model_name() -> str:
+    return os.getenv("GEMINI_MODEL") or DEFAULT_GEMINI_MODEL
+
+
+@lru_cache(maxsize=1)
+def _build_client(api_key: str) -> genai.Client:
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS),
+    )
+
+
+def get_client() -> genai.Client:
+    """Returns a shared Gemini client, created on first use (not at import)."""
+    key = _api_key()
+    if not key:
+        raise AINotConfiguredError("AI is not configured (GEMINI_API_KEY is not set)")
+    return _build_client(key)
+
+
+def thinking_config(model: str) -> types.ThinkingConfig:
+    """Keep thinking off/minimal so it doesn't eat the output token budget."""
+    if model.startswith("gemini-2.5"):
+        return types.ThinkingConfig(thinking_budget=0)
+    return types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW)
 
 
 def extract_facts(raw_text: str) -> List[Dict[str, Any]]:
-    """Extracts key concepts, definitions, and tags as structured JSON."""
-    if not api_key or api_key == "your_gemini_key_here":
-        return [
-            {"concept": "Mock Concept", "description": "No API key found", "tags": "Mock, System"}
-        ]
-        
+    """Extracts key concepts, definitions, and tags as structured JSON.
+
+    Raises AIError (or a subclass) on any failure; never returns mock data.
+    """
+    client = get_client()
+    model = get_model_name()
+
     prompt = f"""
     Extract the most important facts, concepts, or definitions from the following text.
-    Return the result strictly as a JSON array of objects.
-    Each object must have exactly these keys:
-    - "concept" (string: the term or concept name)
-    - "description" (string: clear, concise definition based on the text)
-    - "tags" (string: comma-separated list of 1-3 relevant categories)
-    
-    Output ONLY valid JSON. No markdown formatting.
-    
+    For each one provide:
+    - "concept": the term or concept name
+    - "description": a clear, concise definition based on the text
+    - "tags": a comma-separated list of 1-3 relevant categories
+
     Raw Text:
-    {raw_text[:15000]} # Truncated for token limit in fact extraction if necessary
+    {raw_text[:FACTS_INPUT_CHAR_LIMIT]}
     """
-    
+
     try:
-        response = model.generate_content(prompt)
-        # Clean up potential markdown formatting around JSON
-        json_str = response.text.replace('```json', '').replace('```', '').strip()
-        return json.loads(json_str)
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=list[FactOut],
+                max_output_tokens=FACTS_MAX_OUTPUT_TOKENS,
+                thinking_config=thinking_config(model),
+            ),
+        )
     except Exception as e:
-        print(f"Gemini Fact Extraction Error: {e}")
-        return []
+        logger.exception("Gemini fact extraction request failed (model=%s)", model)
+        raise AIError("AI service request failed") from e
+
+    parsed = response.parsed
+    if not isinstance(parsed, list):
+        finish = None
+        if response.candidates:
+            finish = response.candidates[0].finish_reason
+        logger.error("Gemini fact extraction returned no parseable JSON (finish_reason=%s)", finish)
+        raise AIError("AI returned an invalid response")
+
+    return [fact.model_dump() for fact in parsed]

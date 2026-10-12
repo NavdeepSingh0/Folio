@@ -1,11 +1,25 @@
 import fitz  # PyMuPDF
 import os
 import re
-import mimetypes
-try:
-    import docx
-except ImportError:
-    pass
+import logging
+import docx
+from pptx import Presentation
+from pptx.enum.shapes import MSO_SHAPE_TYPE
+
+logger = logging.getLogger(__name__)
+
+TEXT_EXTENSIONS = {".txt", ".csv", ".py", ".java", ".js", ".tsx", ".ts", ".html", ".css", ".json"}
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md"} | TEXT_EXTENSIONS | IMAGE_EXTENSIONS
+
+
+class DocumentParseError(Exception):
+    """Text extraction failed. str(e) is a short, user-safe reason."""
+
+
+class UnsupportedFileTypeError(DocumentParseError):
+    """The file extension has no extractor."""
+
 
 def extract_text_from_pdf(file_path: str) -> str:
     """Extracts raw text from a PDF file using PyMuPDF."""
@@ -17,16 +31,82 @@ def extract_text_from_pdf(file_path: str) -> str:
             text += page.get_text("text") + "\n\n"
         doc.close()
     except Exception as e:
-        raise Exception(f"Failed to parse PDF: {str(e)}")
+        logger.exception("PDF parsing failed")
+        raise DocumentParseError("Could not read this PDF file") from e
     return text.strip()
 
 def extract_text_from_docx(file_path: str) -> str:
-    """Extracts text from a DOCX file."""
+    """Extracts text from a DOCX file, mapping Word heading styles to Markdown headings."""
     try:
         doc = docx.Document(file_path)
-        return "\n".join([para.text for para in doc.paragraphs])
     except Exception as e:
-        raise Exception(f"Failed to parse DOCX: {str(e)}")
+        logger.exception("DOCX parsing failed")
+        raise DocumentParseError("Could not read this Word document") from e
+
+    lines = []
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if not text:
+            continue
+        style = (para.style.name if para.style is not None else "") or ""
+        level = re.match(r"Heading (\d)", style)
+        if style == "Title":
+            lines.append(f"# {text}")
+        elif level:
+            lines.append(f"{'#' * min(int(level.group(1)) + 1, 6)} {text}")
+        else:
+            lines.append(text)
+    return "\n\n".join(lines)
+
+
+def _iter_shapes(shapes):
+    """Yields shapes, recursing into group shapes."""
+    for shape in shapes:
+        if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+            yield from _iter_shapes(shape.shapes)
+        else:
+            yield shape
+
+
+def extract_text_from_pptx(file_path: str) -> str:
+    """Extracts slide titles, body text, tables and speaker notes from a PPTX file."""
+    try:
+        prs = Presentation(file_path)
+    except Exception as e:
+        logger.exception("PPTX parsing failed")
+        raise DocumentParseError("Could not read this PowerPoint file") from e
+
+    sections = []
+    for index, slide in enumerate(prs.slides, start=1):
+        title_shape = slide.shapes.title
+        title = title_shape.text_frame.text.strip() if title_shape is not None and title_shape.has_text_frame else ""
+        parts = [f"## Slide {index}: {title}" if title else f"## Slide {index}"]
+
+        for shape in _iter_shapes(slide.shapes):
+            if title_shape is not None and shape.shape_id == title_shape.shape_id:
+                continue
+            if shape.has_text_frame:
+                text = shape.text_frame.text.strip()
+                if text:
+                    parts.append(text)
+            elif getattr(shape, "has_table", False) and shape.has_table:
+                rows = [
+                    "| " + " | ".join(cell.text.strip().replace("\n", " ") for cell in row.cells) + " |"
+                    for row in shape.table.rows
+                ]
+                if rows:
+                    col_count = len(shape.table.columns)
+                    rows.insert(1, "|" + " --- |" * col_count)
+                    parts.append("\n".join(rows))
+
+        if slide.has_notes_slide:
+            notes = slide.notes_slide.notes_text_frame.text.strip() if slide.notes_slide.notes_text_frame else ""
+            if notes:
+                parts.append(f"> **Speaker notes:** {notes}")
+
+        sections.append("\n\n".join(parts))
+
+    return "\n\n".join(sections).strip()
 
 def process_markdown_frontmatter(text: str) -> str:
     """
@@ -106,37 +186,39 @@ def process_markdown_frontmatter(text: str) -> str:
 
 def extract_text_from_file(file_path: str) -> str:
     """Universal text extractor based on file extension."""
+    """Universal text extractor based on file extension.
+
+    Raises DocumentParseError (or UnsupportedFileTypeError) on failure; never
+    returns an error message as content. Images yield an empty string.
+    """
     if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-        
+        raise DocumentParseError("Uploaded file could not be found")
+
     ext = os.path.splitext(file_path)[1].lower()
-    
+
     if ext == ".pdf":
         return extract_text_from_pdf(file_path)
-    elif ext in [".docx", ".doc"]:
+    elif ext == ".docx":
         return extract_text_from_docx(file_path)
+    elif ext == ".pptx":
+        return extract_text_from_pptx(file_path)
     elif ext == ".md":
         # For Markdown files, process frontmatter server-side for clean rendering
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 raw = f.read()
             return process_markdown_frontmatter(raw)
-        except UnicodeDecodeError:
-            raise Exception("File is not valid UTF-8 text.")
-    elif ext in [".txt", ".csv", ".py", ".java", ".js", ".tsx", ".ts", ".html", ".css", ".json"]:
+        except UnicodeDecodeError as e:
+            raise DocumentParseError("File is not valid UTF-8 text") from e
+    elif ext in TEXT_EXTENSIONS:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 return f.read()
-        except UnicodeDecodeError:
-            raise Exception("File is not valid UTF-8 text.")
-    elif ext in [".png", ".jpg", ".jpeg", ".webp"]:
-        # We will handle images via Multimodal Gemini directly in the AI Pipeline.
-        return f"[IMAGE_FILE]: {file_path}"
+        except UnicodeDecodeError as e:
+            raise DocumentParseError("File is not valid UTF-8 text") from e
+    elif ext in IMAGE_EXTENSIONS:
+        # No text extraction for images; never expose the server path as content.
+        return ""
     else:
-        # Fallback: attempt to read as text
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return f.read()
-        except:
-            raise Exception(f"Unsupported file format: {ext}")
+        raise UnsupportedFileTypeError(f"Unsupported file type: {ext or 'no extension'}")
 

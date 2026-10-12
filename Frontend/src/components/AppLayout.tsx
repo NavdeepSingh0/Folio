@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { BookOpen, Home, MessageSquare, Plus, Settings, ChevronLeft, Menu, Database, Moon, Sun } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { BookOpen, Home, MessageSquare, Plus, Settings, ChevronLeft, Menu, Database, Moon, Sun, LogOut } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/authStore";
+import { cache } from "../lib/cache";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const signOut = useAuthStore((s) => s.signOut);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("Sign out failed", err);
+    } finally {
+      // Wipe cached notes/folders and open tabs regardless of the network result
+      cache.clear();
+      navigate("/auth", { replace: true });
+    }
+  };
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || 
@@ -141,6 +157,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Settings className="w-5 h-5 shrink-0" />
             {sidebarOpen && <span>Settings</span>}
           </Link>
+
+          <button
+            onClick={handleSignOut}
+            className={`flex items-center ${sidebarOpen ? "justify-start gap-3 px-3" : "justify-center w-10 h-10"} py-2 text-sm rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors`}
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            <LogOut className="w-5 h-5 shrink-0" />
+            {sidebarOpen && <span>Sign out</span>}
+          </button>
         </div>
       </aside>
 

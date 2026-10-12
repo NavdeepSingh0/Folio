@@ -12,7 +12,12 @@ async function apiFetch(url: string, options: RequestInit = {}) {
     let errMessage = 'Network response was not ok';
     try {
       const errData = await res.json();
-      errMessage = errData.detail || errMessage;
+      if (typeof errData.detail === 'string') {
+        errMessage = errData.detail;
+      } else if (errData.detail) {
+        // FastAPI validation errors arrive as an array of objects
+        errMessage = JSON.stringify(errData.detail);
+      }
     } catch {}
     throw new Error(errMessage);
   }
@@ -51,7 +56,7 @@ export const api = {
     }
     return res.json();
   },
-  getAttachments: (fileId: string | number) => apiFetch(`${BASE_URL}/files/${fileId}/attachments`).then(res => res.json()),
+  getAttachments: (fileId: string | number, signal?: AbortSignal) => apiFetch(`${BASE_URL}/files/${fileId}/attachments`, { signal }).then(res => res.json()),
   deleteAttachment: (id: string | number) => apiFetch(`${BASE_URL}/attachments/${id}`, { method: 'DELETE' }).then(res => res.json()),
   updateAttachment: (id: string | number, filename: string) => apiFetch(`${BASE_URL}/attachments/${id}`, {
     method: 'PUT',
@@ -62,7 +67,7 @@ export const api = {
   // --- Facts ---
   getUnassignedFiles: () => apiFetch(`${BASE_URL}/files/unassigned`).then(res => res.json()),
   getAllFiles: () => apiFetch(`${BASE_URL}/files`).then(res => res.json()),
-  getFile: (id: string | number) => apiFetch(`${BASE_URL}/files/${id}`).then(res => res.json()),
+  getFile: (id: string | number, signal?: AbortSignal) => apiFetch(`${BASE_URL}/files/${id}`, { signal }).then(res => res.json()),
   getFacts: () => apiFetch(`${BASE_URL}/facts`).then(res => res.json()),
   updateFile: (id: string | number, data: { name?: string, folder_id?: string | number | null, markdown_content?: string }) =>
     apiFetch(`${BASE_URL}/files/${id}`, {
@@ -99,7 +104,7 @@ export const api = {
     return apiFetch(`${BASE_URL}/chat`, {
       method: 'POST',
       body: formData
-    }).then(res => res.json());
+    }).then(res => res.json() as Promise<{ session_id: number; message: string }>);
   },
   highlightToAsk: (file_id: number, highlighted_text: string, surrounding_text?: string) =>
     apiFetch(`${BASE_URL}/chat/context`, {

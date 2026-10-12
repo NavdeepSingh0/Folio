@@ -1,23 +1,56 @@
-import os
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import google.generativeai as genai
+from google.genai import types
 import PIL.Image
 
 from ..models.database import get_db
 from ..models import schema, pydantic_schemas
+from ..services.ai_pipeline import get_client, get_model_name, thinking_config, AINotConfiguredError
 from .library import get_current_user_id
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
-api_key = os.getenv("GEMINI_API_KEY")
-if api_key and api_key != "your_gemini_key_here":
-    genai.configure(api_key=api_key)
+CHAT_MAX_OUTPUT_TOKENS = 8192
 
-# We use Gemini 1.5 Pro for Chat for complex reasoning
-model = genai.GenerativeModel('gemini-1.5-pro')
+
+def _generate(contents) -> str:
+    """Calls Gemini and returns the text, mapping failures to HTTP errors."""
+    try:
+        client = get_client()
+    except AINotConfiguredError:
+        raise HTTPException(status_code=503, detail="AI assistant is not configured on the server")
+
+    model = get_model_name()
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                max_output_tokens=CHAT_MAX_OUTPUT_TOKENS,
+                thinking_config=thinking_config(model),
+            ),
+        )
+    except Exception:
+        logger.exception("Gemini chat request failed (model=%s)", model)
+        raise HTTPException(status_code=502, detail="AI assistant request failed. Please try again.")
+
+    if not response.text:
+        logger.error("Gemini chat returned an empty response (model=%s)", model)
+        raise HTTPException(status_code=502, detail="AI assistant returned an empty response. Please try again.")
+    return response.text
+
+
+def _history_to_contents(history: list) -> list:
+    """Converts stored history ({role, parts: [str]}) into Gemini content objects."""
+    return [
+        types.Content(role=item["role"], parts=[types.Part(text=str(p)) for p in item.get("parts", [])])
+        for item in history
+    ]
 
 
 @router.post("", response_model=dict)
@@ -33,9 +66,12 @@ async def chat_with_assistant(
     Stateful chat endpoint. If session_id is not provided, creates a new chat session.
     If file_id is provided on a NEW session, the entire markdown file is injected as the system context.
     Accepts multipart/form-data for file attachments.
+    Returns {"session_id": int, "message": str}.
     """
     
-    # 1. Fetch or Create Chat Session
+    # 1. Fetch existing session, or prepare a new one (saved only after a successful AI reply)
+    chat_session = None
+    db_file = None
     if session_id:
         chat_session = db.query(schema.ChatSession).filter(
             schema.ChatSession.id == session_id, 
@@ -43,29 +79,15 @@ async def chat_with_assistant(
         ).first()
         if not chat_session:
             raise HTTPException(status_code=404, detail="Chat session not found")
-        history = json.loads(chat_session.history)
+        history = json.loads(chat_session.history or "[]")
     else:
-        # Create new session
-        file_name = "General Knowledge"
-        if file_id:
-            db_file = db.query(schema.File).filter(schema.File.id == file_id).first()
-            if db_file:
-                file_name = db_file.name
-                
-        chat_session = schema.ChatSession(
-            user_id=user_id,
-            title=f"Chat regarding {file_name}",
-            subject=file_name,
-            history="[]"
-        )
-        db.add(chat_session)
-        db.commit()
-        db.refresh(chat_session)
         history = []
-        
-        # Inject file context if provided
         if file_id:
-            db_file = db.query(schema.File).filter(schema.File.id == file_id).first()
+            db_file = db.query(schema.File).filter(
+                schema.File.id == file_id,
+                schema.File.user_id == user_id
+            ).first()
+            # Inject file context if provided
             if db_file and db_file.markdown_content:
                 system_prompt = f"You are a helpful study assistant. The user is currently reading this document:\n\n---\n{db_file.markdown_content}\n---\n\nAnswer all subsequent questions based heavily on this document."
                 history.append({"role": "user", "parts": [system_prompt]})
@@ -82,39 +104,40 @@ async def chat_with_assistant(
                     img = PIL.Image.open(attachment.file)
                     message_parts.append(img)
                     db_history_message += f"\n[Attached Image: {attachment.filename}]"
-                except Exception as e:
-                    print("Failed to process image attachment:", e)
+                except Exception:
+                    logger.warning("Failed to process image attachment %s", attachment.filename, exc_info=True)
             else:
                 try:
                     content = await attachment.read()
                     text = content.decode('utf-8', errors='ignore')
                     message_parts.append(f"\n\nAttached File ({attachment.filename}):\n{text}")
                     db_history_message += f"\n[Attached File: {attachment.filename}]"
-                except Exception as e:
-                    print("Failed to process text attachment:", e)
+                except Exception:
+                    logger.warning("Failed to process text attachment %s", attachment.filename, exc_info=True)
 
-    # 2. Append User Message to DB History (Strings only)
+    # 2. Call Gemini with prior history plus the new multimodal message
+    contents = _history_to_contents(history) + [types.UserContent(parts=message_parts)]
+    ai_response_text = _generate(contents)
+
+    # 3. Persist (strings only in history)
+    if chat_session is None:
+        file_name = db_file.name if db_file else "General Knowledge"
+        chat_session = schema.ChatSession(
+            user_id=user_id,
+            title=f"Chat regarding {file_name}",
+            subject=file_name,
+            history="[]",
+            messages_count=0
+        )
+        db.add(chat_session)
+
     history.append({"role": "user", "parts": [db_history_message]})
-    
-    # 3. Call Gemini
-    if not api_key or api_key == "your_gemini_key_here":
-        ai_response_text = f"This is a mocked response to: '{message}'. Please set GEMINI_API_KEY in .env."
-    else:
-        try:
-            # We start a chat object with the constructed history
-            # The SDK handles the context implicitly
-            chat = model.start_chat(history=history[:-1]) # exclude the message we just appended
-            response = chat.send_message(message_parts)
-            ai_response_text = response.text
-        except Exception as e:
-            ai_response_text = f"An error occurred: {str(e)}"
-            
-    # 4. Append AI Message and Save
     history.append({"role": "model", "parts": [ai_response_text]})
     
     chat_session.history = json.dumps(history)
-    chat_session.messages_count += 2  # user + model
+    chat_session.messages_count = (chat_session.messages_count or 0) + 2  # user + model
     db.commit()
+    db.refresh(chat_session)
     
     return {
         "session_id": chat_session.id,
@@ -131,8 +154,12 @@ def highlight_to_ask(
     """
     Context-aware endpoint. Takes a highlighted snippet and returns an explanation.
     Does not require a persistent chat session (stateless).
+    Returns {"response": str}.
     """
-    db_file = db.query(schema.File).filter(schema.File.id == request.file_id).first()
+    db_file = db.query(schema.File).filter(
+        schema.File.id == request.file_id,
+        schema.File.user_id == user_id
+    ).first()
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
         
@@ -150,14 +177,7 @@ def highlight_to_ask(
     else:
         prompt += "\n\nPlease explain this highlighted text clearly, defining any complex terms."
         
-    if not api_key or api_key == "your_gemini_key_here":
-        return {"response": f"Mock context explanation for: {request.highlighted_text}"}
-        
-    try:
-        response = model.generate_content(prompt)
-        return {"response": response.text}
-    except Exception as e:
-        return {"response": f"Error: {str(e)}"}
+    return {"response": _generate(prompt)}
 
 
 @router.get("/history", response_model=List[pydantic_schemas.ChatSessionResponse])

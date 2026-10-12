@@ -25,6 +25,8 @@ The acceleration of an object depends on the mass of the object and the amount o
 Whenever one object exerts a force on a second object, the second object exerts an equal and opposite force on the first.
 `;
 
+type ChatMessage = { role: "user" | "model"; text: string; isError?: boolean };
+
 export function StudyScreen() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -45,17 +47,33 @@ export function StudyScreen() {
   const [showSplitFile, setShowSplitFile] = useState(false);
   const [zoom, setZoom] = useState(100);
 
-  // Chat States
-  const [chatHistory, setChatHistory] = useState([{ role: "model", text: "Hello! I've loaded the context for this document. What would you like to know?" }]);
-  const [chatAttachments, setChatAttachments] = useState<File[]>([]);
-  const [isSending, setIsSending] = useState(false);
+  // Content the editor buffer was last loaded from or saved as. The buffer is
+  // "dirty" when it differs, and dirty buffers are never overwritten by loads.
+  const [baselineMarkdown, setBaselineMarkdown] = useState("");
+  const isDirty = markdown !== baselineMarkdown;
+  const isDirtyRef = useRef(false);
+  const fileIdRef = useRef(fileId);
+  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
+  useEffect(() => { fileIdRef.current = fileId; }, [fileId]);
 
-  const [openTabs, setOpenTabs] = useState<{id: string, name: string}[]>(() => {
-    try {
-      const saved = localStorage.getItem('folio_open_tabs');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  // Chat state is kept per file so each note has its own conversation and
+  // backend session (the API returns session_id; we send it on follow-ups).
+  const [chatByFile, setChatByFile] = useState<Record<string, ChatMessage[]>>({});
+  const [sessionByFile, setSessionByFile] = useState<Record<string, number>>({});
+  const [sendingByFile, setSendingByFile] = useState<Record<string, boolean>>({});
+  const [chatAttachments, setChatAttachments] = useState<File[]>([]);
+  const chatHistory = fileId ? chatByFile[fileId] ?? [] : [];
+  const isSending = fileId ? !!sendingByFile[fileId] : false;
+
+  const [openTabs, setOpenTabs] = useState<{id: string, name: string}[]>(() => cache.get<{id: string, name: string}[]>('open_tabs') || []);
+
+  // Ask before any in-screen navigation that would discard unsaved edits.
+  const confirmDiscard = () => !isDirty || window.confirm("You have unsaved changes to this note. Discard them?");
+
+  const openTab = (id: string) => {
+    if (id === fileId || !confirmDiscard()) return;
+    navigate(`/study?file=${id}`);
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setPreviewMarkdown(markdown), 150);
@@ -68,11 +86,11 @@ export function StudyScreen() {
         const exists = prev.find(t => t.id === fileId);
         if (!exists) {
           const newTabs = [...prev, { id: fileId, name: fileData.name }];
-          localStorage.setItem('folio_open_tabs', JSON.stringify(newTabs));
+          cache.set('open_tabs', newTabs);
           return newTabs;
         } else if (exists.name !== fileData.name) {
           const newTabs = prev.map(t => t.id === fileId ? { ...t, name: fileData.name } : t);
-          localStorage.setItem('folio_open_tabs', JSON.stringify(newTabs));
+          cache.set('open_tabs', newTabs);
           return newTabs;
         }
         return prev;
@@ -82,9 +100,10 @@ export function StudyScreen() {
 
   const closeTab = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    if (id === fileId && !confirmDiscard()) return;
     const newTabs = openTabs.filter(t => t.id !== id);
     setOpenTabs(newTabs);
-    localStorage.setItem('folio_open_tabs', JSON.stringify(newTabs));
+    cache.set('open_tabs', newTabs);
     if (id === fileId) {
       if (newTabs.length > 0) {
         navigate(`/study?file=${newTabs[newTabs.length - 1].id}`);
@@ -124,48 +143,136 @@ export function StudyScreen() {
 
   // Load File Data
   useEffect(() => {
-    if (fileId) {
-      // 1. Instant Cache Load
-      const cachedFile = cache.get<any>(`study_file_${fileId}`);
-      if (cachedFile) {
-        setFileData(cachedFile);
-        setEditNameValue(cachedFile.name || "");
-        setMarkdown(cachedFile.markdown_content || "No content extracted.");
-        setPreviewMarkdown(cachedFile.markdown_content || "No content extracted.");
-        setIsLoading(false);
-      } else {
-        setIsLoading(true);
-      }
-
-      const cachedAttachments = cache.get<any[]>(`study_attachments_${fileId}`);
-      if (cachedAttachments) {
-        setPanelAttachments(cachedAttachments);
-      }
-
-      // 2. Background Revalidation
-      api.getFile(fileId).then(data => {
-        setFileData(data);
-        setEditNameValue(data.name || "");
-        setMarkdown(data.markdown_content || "No content extracted.");
-        setPreviewMarkdown(data.markdown_content || "No content extracted.");
-        cache.set(`study_file_${fileId}`, data);
-        setIsLoading(false);
-      }).catch(err => {
-        console.error("Failed to load file", err);
-        setMarkdown("Failed to load file data.");
-        setIsLoading(false);
-      });
-      api.getAttachments(fileId).then(data => {
-        setPanelAttachments(data);
-        cache.set(`study_attachments_${fileId}`, data);
-      }).catch(err => {
-        console.error("Failed to load attachments", err);
-      });
-    } else {
+    if (!fileId) {
       // If no file loaded, navigate to library
       navigate("/library", { replace: true });
+      return;
     }
+
+    // Aborted when fileId changes or the screen unmounts, so a slow response
+    // for a previous file can never land in this file's buffer.
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    // Switching files starts a fresh buffer (unsaved edits were already
+    // confirmed-discarded by the navigation guard).
+    isDirtyRef.current = false;
+    setIsEditing(false);
+    setEditingName(false);
+    setPreviewAttachment(null);
+
+    const applyFile = (data: any) => {
+      const content = data.markdown_content || "No content extracted.";
+      setFileData(data);
+      setEditNameValue(data.name || "");
+      setMarkdown(content);
+      setPreviewMarkdown(content);
+      setBaselineMarkdown(content);
+    };
+
+    const showMessage = (text: string) => {
+      setMarkdown(text);
+      setPreviewMarkdown(text);
+      setBaselineMarkdown(text);
+    };
+
+    // 1. Instant Cache Load
+    const cachedFile = cache.get<any>(`study_file_${fileId}`);
+    if (cachedFile) {
+      applyFile(cachedFile);
+      setIsLoading(false);
+    } else {
+      // Drop the previous file's buffer so it can't be shown or saved under this id
+      setFileData(null);
+      setEditNameValue("");
+      showMessage("");
+      setIsLoading(true);
+    }
+
+    setPanelAttachments(cache.get<any[]>(`study_attachments_${fileId}`) || []);
+
+    // 2. Background Revalidation
+    api.getFile(fileId, signal).then(data => {
+      if (signal.aborted) return;
+      cache.set(`study_file_${fileId}`, data);
+      if (isDirtyRef.current) {
+        // The user started editing the cached copy; keep their buffer.
+        setFileData(data);
+      } else {
+        applyFile(data);
+      }
+      setIsLoading(false);
+    }).catch(err => {
+      if (signal.aborted) return;
+      console.error("Failed to load file", err);
+      if (!isDirtyRef.current) showMessage("Failed to load file data.");
+      setIsLoading(false);
+    });
+    api.getAttachments(fileId, signal).then(data => {
+      if (signal.aborted) return;
+      setPanelAttachments(data);
+      cache.set(`study_attachments_${fileId}`, data);
+    }).catch(err => {
+      if (signal.aborted) return;
+      console.error("Failed to load attachments", err);
+    });
+
+    return () => controller.abort();
   }, [fileId, navigate]);
+
+  const handleSave = async () => {
+    if (!fileId || !isDirty) return;
+    // Capture what is being saved so a tab switch mid-request can't redirect it
+    const id = fileId;
+    const content = markdown;
+    const savedFileData = fileData;
+    try {
+      setSaveStatus("Saving...");
+      await api.updateFile(id, { markdown_content: content });
+      if (savedFileData) {
+        cache.set(`study_file_${id}`, { ...savedFileData, markdown_content: content });
+      }
+      if (fileIdRef.current === id) {
+        setFileData((prev: any) => prev ? { ...prev, markdown_content: content } : prev);
+        setBaselineMarkdown(content);
+      }
+      setSaveStatus("Saved!");
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch (err) {
+      console.error("Failed to save markdown", err);
+      setSaveStatus("Error!");
+      setTimeout(() => setSaveStatus(null), 2000);
+    }
+  };
+
+  const handleSend = async () => {
+    const text = message.trim();
+    if (!fileId || !text || isSending) return;
+    // Bind the reply to the file it was asked about, even if the user switches tabs
+    const id = fileId;
+    const attachments = [...chatAttachments];
+    setMessage("");
+    setChatAttachments([]);
+
+    const append = (msg: ChatMessage) =>
+      setChatByFile(prev => ({ ...prev, [id]: [...(prev[id] ?? []), msg] }));
+
+    append({ role: "user", text: attachments.length > 0 ? `${text}\n[Attachments sent]` : text });
+    setSendingByFile(prev => ({ ...prev, [id]: true }));
+    try {
+      const response = await api.sendMessage(text, Number(id), sessionByFile[id], attachments);
+      if (response.session_id) {
+        setSessionByFile(prev => ({ ...prev, [id]: response.session_id }));
+      }
+      append({ role: "model", text: response.message });
+    } catch (err) {
+      console.error(err);
+      const detail = err instanceof Error ? err.message : String(err);
+      append({ role: "model", text: `Sorry, I couldn't get a response: ${detail}` });
+    } finally {
+      setSendingByFile(prev => ({ ...prev, [id]: false }));
+    }
+  };
 
   // Keyboard shortcut for zoom
   useEffect(() => {
@@ -232,7 +339,7 @@ export function StudyScreen() {
             return (
               <div 
                 key={tab.id}
-                onClick={() => navigate(`/study?file=${tab.id}`)}
+                onClick={() => openTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2 border-r border-border h-full cursor-pointer group min-w-32 max-w-64 transition-colors ${isActive ? 'bg-background border-t-2 border-t-primary' : 'bg-surface hover:bg-muted border-t-2 border-t-transparent'}`}
               >
                 <FileIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -264,7 +371,7 @@ export function StudyScreen() {
           
           {/* Add New Tab Button */}
           <button 
-            onClick={() => navigate('/library')}
+            onClick={() => { if (confirmDiscard()) navigate('/library'); }}
             className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors ml-1 shrink-0 rounded-md"
             title="Open another note from Library"
           >
@@ -305,25 +412,11 @@ export function StudyScreen() {
             <button 
               onClick={async () => {
                 if (isEditing) {
-                  try {
-                    setSaveStatus("Saving...");
-                    if (fileId) {
-                      await api.updateFile(fileId, { markdown_content: markdown });
-                      if (fileData) {
-                        const newData = { ...fileData, markdown_content: markdown };
-                        setFileData(newData);
-                        cache.set(`study_file_${fileId}`, newData);
-                      }
-                    }
-                    setSaveStatus("Saved!");
-                    setTimeout(() => setSaveStatus(null), 2000);
-                  } catch (err) {
-                    console.error("Failed to save markdown", err);
-                    setSaveStatus("Error!");
-                    setTimeout(() => setSaveStatus(null), 2000);
-                  }
+                  await handleSave();
+                  setIsEditing(false);
+                } else {
+                  setIsEditing(true);
                 }
-                setIsEditing(!isEditing);
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${isEditing ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
             >
@@ -378,26 +471,10 @@ export function StudyScreen() {
                           }
                         }
                       }}
-                      onKeyDown={async (e) => {
+                      onKeyDown={(e) => {
                         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                           e.preventDefault();
-                          try {
-                            setSaveStatus("Saving...");
-                            if (fileId) {
-                              await api.updateFile(fileId, { markdown_content: markdown });
-                              if (fileData) {
-                                const newData = { ...fileData, markdown_content: markdown };
-                                setFileData(newData);
-                                cache.set(`study_file_${fileId}`, newData);
-                              }
-                            }
-                            setSaveStatus("Saved!");
-                            setTimeout(() => setSaveStatus(null), 2000);
-                          } catch (err) {
-                            console.error("Failed to save markdown", err);
-                            setSaveStatus("Error!");
-                            setTimeout(() => setSaveStatus(null), 2000);
-                          }
+                          handleSave();
                         }
                       }}
                       style={{ fontSize: `${zoom}%` }}
@@ -606,8 +683,7 @@ export function StudyScreen() {
                         Hello! I've loaded the context for <strong>{fileData?.name || "this document"}</strong>. What would you like to know?
                       </div>
                       {chatHistory.map((msg, i) => (
-                        // Skip the first default message if we already show it manually above (or just let the map handle it if we modify state instead)
-                        i > 0 && <div key={i} className={`p-4 rounded-2xl text-sm border border-border max-w-[85%] ${
+                        <div key={i} className={`p-4 rounded-2xl text-sm border border-border max-w-[85%] ${
                           msg.role === 'model' 
                             ? 'bg-muted rounded-tl-sm self-start' 
                             : 'bg-primary text-primary-foreground rounded-tr-sm self-end'
@@ -651,54 +727,12 @@ export function StudyScreen() {
                           value={message}
                           onChange={(e) => setMessage(e.target.value)}
                           className="w-full bg-background border border-border rounded-xl pl-10 pr-12 py-3.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
-                          onKeyDown={async (e) => {
-                            if (e.key === "Enter" && message.trim() && !isSending) {
-                              const text = message.trim();
-                              const attachments = [...chatAttachments];
-                              setMessage("");
-                              setChatAttachments([]);
-                              
-                              let userMsg = text;
-                              if (attachments.length > 0) userMsg += "\n[Attachments sent]";
-                              
-                              setChatHistory(prev => [...prev, { role: "user", text: userMsg }]);
-                              setIsSending(true);
-                              try {
-                                const response = await api.sendMessage(text, fileId ? parseInt(fileId) : undefined, undefined, attachments);
-                                setChatHistory(prev => [...prev, { role: "model", text: response.message }]);
-                              } catch (err) {
-                                console.error(err);
-                                setChatHistory(prev => [...prev, { role: "model", text: "Sorry, I encountered an error." }]);
-                              } finally {
-                                setIsSending(false);
-                              }
-                            }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSend();
                           }}
                         />
                         <button 
-                          onClick={async () => {
-                            if (message.trim() && !isSending) {
-                              const text = message.trim();
-                              const attachments = [...chatAttachments];
-                              setMessage("");
-                              setChatAttachments([]);
-                              
-                              let userMsg = text;
-                              if (attachments.length > 0) userMsg += "\n[Attachments sent]";
-                              
-                              setChatHistory(prev => [...prev, { role: "user", text: userMsg }]);
-                              setIsSending(true);
-                              try {
-                                const response = await api.sendMessage(text, fileId ? parseInt(fileId) : undefined, undefined, attachments);
-                                setChatHistory(prev => [...prev, { role: "model", text: response.message }]);
-                              } catch (err) {
-                                console.error(err);
-                                setChatHistory(prev => [...prev, { role: "model", text: "Sorry, I encountered an error." }]);
-                              } finally {
-                                setIsSending(false);
-                              }
-                            }
-                          }}
+                          onClick={handleSend}
                           className="absolute right-2 p-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
                         >
                           <Send className="w-4 h-4" />

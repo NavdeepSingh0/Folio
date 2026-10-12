@@ -16,8 +16,7 @@ jsonpointer==3.1.1
 langchain-core==1.4.8
 langchain-protocol==0.0.18
 langchain-text-splitters==1.1.2
-google-generativeai==0.8.5
-google-genai==0.8.0
+google-genai==2.10.0
 
 lxml==6.1.1
 orjson==3.11.9
@@ -26,6 +25,7 @@ pillow==12.2.0
 pydantic==2.13.4
 pydantic_core==2.46.4
 PyMuPDF==1.27.2.3
+python-docx==1.2.0
 python-multipart==0.0.32
 python-pptx==1.0.2
 PyYAML==6.0.3
