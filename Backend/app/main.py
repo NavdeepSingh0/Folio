@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import os
 
 # Import our custom routers
 from app.api.library import router as library_router
@@ -16,9 +17,17 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Folio Backend API")
 
 # Configure CORS for frontend access
+# CORS_ORIGINS: comma-separated list of allowed origins (defaults to local dev servers)
+DEFAULT_CORS_ORIGINS = "http://localhost:3000,http://localhost:5173,http://localhost:8081"
+cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",") if o.strip()]
+# A wildcard origin with credentials would reopen the original issue; drop it
+if "*" in cors_origins:
+    print("WARNING: '*' in CORS_ORIGINS is ignored because credentials are allowed")
+    cors_origins = [o for o in cors_origins if o != "*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

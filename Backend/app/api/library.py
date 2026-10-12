@@ -133,6 +133,11 @@ def update_file(file_id: int, file_update: pydantic_schemas.FileUpdate, db: Sess
         raise HTTPException(status_code=404, detail="File not found")
     
     update_data = file_update.model_dump(exclude_unset=True)
+    # Prevent moving a file into a folder owned by another user
+    if update_data.get("folder_id") is not None:
+        target_folder = db.query(schema.Folder).filter(schema.Folder.id == update_data["folder_id"], schema.Folder.user_id == user_id).first()
+        if not target_folder:
+            raise HTTPException(status_code=404, detail="Folder not found")
     if update_data.get("markdown_content"):
         update_data["markdown_content"] = extract_inline_images(db, user_id, file_id, update_data["markdown_content"])
     for key, value in update_data.items():
