@@ -21,11 +21,17 @@ async function apiFetch(url: string, options: RequestInit = {}) {
 
 // Ping the server every 10 minutes to prevent Render free-tier cold starts
 let _keepaliveTimer: ReturnType<typeof setInterval> | null = null;
-export function startServerKeepalive() {
-  if (_keepaliveTimer) return;
-  const ping = () => apiFetch(`${BASE_URL}/folders`).catch(() => {});
+// Returns a stop function; /status is unauthenticated so no token is needed
+export function startServerKeepalive(): () => void {
+  const stop = () => {
+    if (_keepaliveTimer) clearInterval(_keepaliveTimer);
+    _keepaliveTimer = null;
+  };
+  if (_keepaliveTimer) return stop;
+  const ping = () => fetch(`${BASE_URL}/status`).catch(() => {});
   ping(); // ping immediately on first call
   _keepaliveTimer = setInterval(ping, 10 * 60 * 1000);
+  return stop;
 }
 
 

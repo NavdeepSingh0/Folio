@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 export function UploadScreen() {
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<{name: string, size: string, status: string, fileRef: File}[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<{id: string, name: string, size: string, status: string, fileRef: File}[]>([]);
   const navigate = useNavigate();
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -20,7 +20,9 @@ export function UploadScreen() {
   };
 
   const stageFiles = (files: FileList) => {
+    // Stable ids so same-named files keep separate statuses
     const newFiles = Array.from(files).map(f => ({
+      id: crypto.randomUUID(),
       name: f.name,
       size: (f.size / 1024 / 1024).toFixed(2) + " MB",
       status: "pending",
@@ -41,10 +43,10 @@ export function UploadScreen() {
     for (const nf of pendingFiles) {
       try {
         await api.uploadFile(nf.fileRef);
-        setUploadedFiles(prev => prev.map(f => f.name === nf.name ? { ...f, status: "complete" } : f));
+        setUploadedFiles(prev => prev.map(f => f.id === nf.id ? { ...f, status: "complete" } : f));
       } catch (err) {
         console.error("Upload failed", err);
-        setUploadedFiles(prev => prev.map(f => f.name === nf.name ? { ...f, status: "failed" } : f));
+        setUploadedFiles(prev => prev.map(f => f.id === nf.id ? { ...f, status: "failed" } : f));
       }
     }
 
@@ -102,8 +104,8 @@ export function UploadScreen() {
           <div className="mt-12 animate-in fade-in">
             <h3 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase mb-4">Ready to Process</h3>
             <div className="space-y-3">
-              {uploadedFiles.map((file, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-card border border-border rounded-xl shadow-sm">
+              {uploadedFiles.map((file) => (
+                <div key={file.id} className="flex items-center justify-between p-4 bg-card border border-border rounded-xl shadow-sm">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-surface rounded-lg flex items-center justify-center">
                       <FileIcon className="w-5 h-5 text-primary" />
@@ -119,7 +121,7 @@ export function UploadScreen() {
                     {file.status === "complete" && <CheckCircle2 className="w-5 h-5 text-success" />}
                     {file.status === "failed" && <AlertCircle className="w-5 h-5 text-red-500" />}
                     <button 
-                      onClick={() => setUploadedFiles(prev => prev.filter((_, i) => i !== idx))}
+                      onClick={() => setUploadedFiles(prev => prev.filter(f => f.id !== file.id))}
                       className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors"
                     >
                       <X className="w-4 h-4" />

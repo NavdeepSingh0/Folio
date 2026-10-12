@@ -5,15 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Folder, FileText, ArrowRight } from 'lucide-react-native';
 import { useAuthStore } from '../src/store/authStore';
 import { api } from '../src/api';
-import { cache } from '../src/cache';
+import { cache, storage } from '../src/cache';
 import { useRouter, useFocusEffect } from 'expo-router';
 import MobileSidebar from '../src/components/MobileSidebar';
 import { useColorScheme as useSystemColorScheme } from 'react-native';
 import { useThemeStore } from '../src/store/themeStore';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { createMMKV } from 'react-native-mmkv';
-
-const storage = createMMKV();
 
 function SkeletonBlock({ width, height, className }: { width: number | string; height: number; className?: string }) {
   return <View style={{ width, height }} className={`bg-muted rounded-lg ${className}`} />;
@@ -57,6 +54,8 @@ export default function HomeScreen() {
       if (cached) {
         setPinnedFolders(cached.pinned);
         setRecentFiles(cached.recent);
+        setAllFolders(cached.folders || []);
+        setAllFiles(cached.files || []);
         setLoading(false);
         return;
       }

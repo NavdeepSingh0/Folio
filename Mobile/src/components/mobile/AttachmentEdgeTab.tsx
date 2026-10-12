@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Dimensions, Image, ScrollView, Linking, useColorScheme as useSystemColorScheme, Platform, ActivityIndicator } from 'react-native';
 import { useThemeStore } from '../../store/themeStore';
 import Animated, { 
@@ -36,12 +36,20 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
   const iconColor = isDark ? '#E0E0E0' : '#121212';
   const mutedIconColor = isDark ? '#8C8C91' : '#6B6B70';
 
-  // Synchronously fetch saved page before rendering
-  const savedPage = attachment?.id 
-    ? cache.getOfflineFallback<number>(`pdf_page_${attachment.id}`) || 1 
-    : 1;
+  // Read the saved page once per attachment, not on every render
+  const savedPageRef = useRef<{ id: any; page: number }>({ id: null, page: 1 });
+  if (savedPageRef.current.id !== (attachment?.id ?? null)) {
+    savedPageRef.current = {
+      id: attachment?.id ?? null,
+      page: attachment?.id ? cache.getOfflineFallback<number>(`pdf_page_${attachment.id}`) || 1 : 1,
+    };
+  }
+  const savedPage = savedPageRef.current.page;
 
   useEffect(() => {
+    let cancelled = false;
+    let task: ReturnType<ReturnType<typeof ReactNativeBlobUtil.config>['fetch']> | null = null;
+
     if (isOpen) {
       setIsMounted(true);
       setIsFullScreen(true);
@@ -53,14 +61,30 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
           setPdfError(false);
           setPdfLoading(true);
 
-          // Fetch directly into base64 memory to avoid file system permission/interruption errors
-          ReactNativeBlobUtil.fetch('GET', url)
-            .then((res) => {
-              const base64Str = res.base64();
-              setLocalPdfPath(`data:application/pdf;base64,${base64Str}`);
-              setPdfLoading(false);
+          // Download to a cached file once; reuse it on later opens
+          const path = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/attachment-${attachment.id}.pdf`;
+          const done = (p: string) => {
+            if (cancelled) return;
+            setLocalPdfPath(`file://${p}`);
+            setPdfLoading(false);
+          };
+          ReactNativeBlobUtil.fs.exists(path)
+            .then(exists => {
+              if (cancelled) return;
+              if (exists) { done(path); return; }
+              task = ReactNativeBlobUtil.config({ fileCache: true, path }).fetch('GET', url);
+              return task.then(res => {
+                if (res.info().status >= 400) {
+                  ReactNativeBlobUtil.fs.unlink(path).catch(() => {});
+                  throw new Error(`HTTP ${res.info().status}`);
+                }
+                done(res.path());
+              });
             })
             .catch(err => {
+              // Drop partial/failed downloads (including cancelled ones) so they aren't reused
+              ReactNativeBlobUtil.fs.unlink(path).catch(() => {});
+              if (cancelled) return;
               console.error("Local download error", err);
               setPdfError(true);
               setPdfLoading(false);
@@ -69,6 +93,15 @@ export default function AttachmentEdgeTab({ attachment, isOpen, onClose, onChang
       } else {
         setPdfError(false);
       }
+      return () => {
+        cancelled = true;
+        // blob-util's cancel() returns undefined at runtime (not a promise)
+        if (task) {
+          try {
+            task.cancel();
+          } catch {}
+        }
+      };
     } else {
       const t = setTimeout(() => setIsMounted(false), 300);
       return () => clearTimeout(t);

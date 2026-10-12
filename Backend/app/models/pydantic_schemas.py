@@ -38,6 +38,9 @@ class FileUpdate(BaseModel):
     name: Optional[str] = None
     folder_id: Optional[int] = None
     markdown_content: Optional[str] = None
+    # SHA-256 of the stored markdown the client last loaded; a mismatch returns 409.
+    # Omitted by mobile/older clients, which keeps last-write-wins behavior.
+    expected_hash: Optional[str] = None
 
 class FileResponse(FileBase):
     id: int
@@ -46,6 +49,8 @@ class FileResponse(FileBase):
     file_size: str
     markdown_content: Optional[str] = None
     created_at: datetime
+    # SHA-256 of markdown_content, used as the save-conflict revision token
+    content_hash: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -60,6 +65,10 @@ class FileSummaryResponse(FileBase):
 
     class Config:
         from_attributes = True
+
+class FileUpdateResponse(FileSummaryResponse):
+    """PUT summary plus the new content hash, so clients can save again without a reload."""
+    content_hash: Optional[str] = None
 
 # --- Facts ---
 class FactResponse(BaseModel):

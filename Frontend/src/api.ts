@@ -19,14 +19,15 @@ async function apiFetch(url: string, options: RequestInit = {}) {
         errMessage = JSON.stringify(errData.detail);
       }
     } catch {}
-    throw new Error(errMessage);
+    // Status lets callers branch on specific failures (e.g. 409 save conflicts)
+    throw Object.assign(new Error(errMessage), { status: res.status });
   }
   return res;
 }
 
 export const api = {
   // --- Folders ---
-  getFolders: () => apiFetch(`${BASE_URL}/folders`).then(res => res.json()),
+  getFolders: (signal?: AbortSignal) => apiFetch(`${BASE_URL}/folders`, { signal }).then(res => res.json()),
   createFolder: (name: string, color?: string) => 
     apiFetch(`${BASE_URL}/folders`, {
       method: 'POST',
@@ -40,7 +41,7 @@ export const api = {
       body: JSON.stringify(data)
     }).then(res => res.json()),
   deleteFolder: (id: string | number, keepNotes: boolean = true) => apiFetch(`${BASE_URL}/folders/${id}?keep_notes=${keepNotes}`, { method: 'DELETE' }).then(res => res.json()),
-  getFilesByFolder: (id: string | number) => apiFetch(`${BASE_URL}/folders/${id}/files`).then(res => res.json()),
+  getFilesByFolder: (id: string | number, signal?: AbortSignal) => apiFetch(`${BASE_URL}/folders/${id}/files`, { signal }).then(res => res.json()),
 
   // --- Attachments ---
   uploadAttachment: async (fileId: string | number, file: File) => {
@@ -65,7 +66,7 @@ export const api = {
   }).then(res => res.json()),
 
   // --- Facts ---
-  getUnassignedFiles: () => apiFetch(`${BASE_URL}/files/unassigned`).then(res => res.json()),
+  getUnassignedFiles: (signal?: AbortSignal) => apiFetch(`${BASE_URL}/files/unassigned`, { signal }).then(res => res.json()),
   getAllFiles: (limit = 100, offset = 0) => apiFetch(`${BASE_URL}/files?limit=${limit}&offset=${offset}`).then(res => res.json()),
   // Loops /files pages until a short page arrives
   fetchAllFiles: async (): Promise<any[]> => {
@@ -78,8 +79,8 @@ export const api = {
     }
   },
   getFile: (id: string | number, signal?: AbortSignal) => apiFetch(`${BASE_URL}/files/${id}`, { signal }).then(res => res.json()),
-  getFacts: () => apiFetch(`${BASE_URL}/facts`).then(res => res.json()),
-  updateFile: (id: string | number, data: { name?: string, folder_id?: string | number | null, markdown_content?: string }) =>
+  getFacts: (limit = 200) => apiFetch(`${BASE_URL}/facts?limit=${limit}`).then(res => res.json()),
+  updateFile: (id: string | number, data: { name?: string, folder_id?: string | number | null, markdown_content?: string, expected_hash?: string | null }) =>
     apiFetch(`${BASE_URL}/files/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

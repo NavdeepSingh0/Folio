@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Search, Folder, FileText, Pin, MoreVertical, Plus, Edit2, Check, X, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
 import { AppLayout } from "../components/AppLayout";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { cache } from "../lib/cache";
 
@@ -17,39 +17,40 @@ export function LibraryScreen() {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
 
-  const [activeFolder, setActiveFolder] = useState<any>(null);
+  // The open folder lives in ?folder= so links and refreshes land on it
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeFolderId = searchParams.get("folder");
+  const activeFolder = activeFolderId ? folders.find(f => f.id.toString() === activeFolderId) ?? null : null;
+  const setActiveFolder = (folder: any) => {
+    setSearchParams(folder ? { folder: folder.id.toString() } : {}, { replace: true });
+  };
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Bumped by Refresh to re-run the load effect
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    const cacheKeyFiles = activeFolder ? `library_files_${activeFolder.id}` : 'library_files_unassigned';
+    const cacheKeyFiles = activeFolderId ? `library_files_${activeFolderId}` : 'library_files_unassigned';
     const cachedFiles = cache.get<any[]>(cacheKeyFiles);
     if (cachedFiles) setFiles(cachedFiles);
-    
-    loadData();
-  }, [activeFolder]);
 
-  const loadData = async () => {
-    try {
-      const cacheKeyFiles = activeFolder ? `library_files_${activeFolder.id}` : 'library_files_unassigned';
-      
-      const [foldersData, filesData] = await Promise.all([
-        api.getFolders(),
-        activeFolder ? api.getFilesByFolder(activeFolder.id) : api.getUnassignedFiles()
-      ]);
+    // Aborted when the folder changes so a slow response can't show the wrong folder's files
+    const controller = new AbortController();
+    const { signal } = controller;
+    setLoadError(null);
 
-      if (!activeFolder) {
-        const params = new URLSearchParams(window.location.search);
-        const folderIdStr = params.get("folder");
-        if (folderIdStr) {
-          const found = foldersData.find((f: any) => f.id.toString() === folderIdStr);
-          if (found) {
-            setActiveFolder(found);
-            return; // Will re-trigger loadData via useEffect
-          }
-        }
-      }
-
+    Promise.all([
+      api.getFolders(signal),
+      activeFolderId ? api.getFilesByFolder(activeFolderId, signal) : api.getUnassignedFiles(signal)
+    ]).then(([foldersData, filesData]) => {
+      if (signal.aborted) return;
       setFolders(foldersData);
       cache.set('library_folders', foldersData);
+
+      // Unknown folder in the URL: fall back to unassigned notes as before
+      if (activeFolderId && !foldersData.some((f: any) => f.id.toString() === activeFolderId)) {
+        setSearchParams({}, { replace: true });
+        return;
+      }
 
       setFiles(filesData);
       cache.set(cacheKeyFiles, filesData);
@@ -57,16 +58,20 @@ export function LibraryScreen() {
       const pinned = foldersData.filter((f: any) => f.is_pinned).map((f: any) => f.name);
       setPinnedFolders(pinned);
       cache.set('library_pinned', pinned);
-    } catch (error) {
-      console.error("Failed to load library data:", error);
-    } finally {
       setLoading(false);
-    }
-  };
+    }).catch(error => {
+      if (signal.aborted) return;
+      console.error("Failed to load library data:", error);
+      setLoadError("Couldn't load your library. Check your connection and try again.");
+      setLoading(false);
+    });
+
+    return () => controller.abort();
+  }, [activeFolderId, reloadKey, setSearchParams]);
 
   const handleRefresh = () => {
     setLoading(true);
-    loadData();
+    setReloadKey(k => k + 1);
   };
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,7 +84,7 @@ export function LibraryScreen() {
   const confirmDeleteFolder = async (id: string, keepNotes: boolean) => {
     try {
       await api.deleteFolder(id, keepNotes);
-      setFolders(folders.filter(f => f.id !== id));
+      setFolders(prev => prev.filter(f => f.id !== id));
       if (activeFolder?.id === id) setActiveFolder(null);
       handleRefresh();
     } catch (err) {
@@ -91,7 +96,7 @@ export function LibraryScreen() {
   const confirmDeleteFile = async (id: string) => {
     try {
       await api.deleteFile(id);
-      setFiles(files.filter(f => f.id !== id));
+      setFiles(prev => prev.filter(f => f.id !== id));
     } catch (err) {
       console.error(err);
     }
@@ -246,6 +251,12 @@ export function LibraryScreen() {
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto pr-2 flex flex-col gap-10">
+          {loadError && (
+            <div role="alert" className="flex items-center justify-between gap-4 p-4 rounded-xl border border-border bg-card text-sm text-muted-foreground">
+              <span>{loadError}</span>
+              <button onClick={handleRefresh} className="text-xs text-primary hover:underline shrink-0">Retry</button>
+            </div>
+          )}
           
           {/* Folders Grid */}
           <section>

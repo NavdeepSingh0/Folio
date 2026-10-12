@@ -3,16 +3,13 @@ import { useEffect, useState } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { LogBox, useColorScheme as useSystemColorScheme, View } from 'react-native';
+import { AppState, LogBox, useColorScheme as useSystemColorScheme, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 // import * as Notifications from 'expo-notifications';
 import { startServerKeepalive } from '../src/api';
 
 LogBox.ignoreLogs(['A props object containing a "key" prop is being spread into JSX']);
-
-// Wake up Render server immediately on app launch, keep it alive
-startServerKeepalive();
 
 // Notifications.setNotificationHandler({
 //   handleNotification: async () => ({
@@ -74,6 +71,25 @@ export default function Layout() {
     initialize();
     setupLocalNotifications();
   }, []);
+
+  // Keep the Render server warm only while signed in and in the foreground
+  const userId = useAuthStore(s => s.user?.id);
+  useEffect(() => {
+    if (!userId) return;
+    let stop: (() => void) | null = AppState.currentState === 'active' ? startServerKeepalive() : null;
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        if (!stop) stop = startServerKeepalive();
+      } else if (stop) {
+        stop();
+        stop = null;
+      }
+    });
+    return () => {
+      sub.remove();
+      if (stop) stop();
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!initialized || !splashFinished) return;

@@ -9,7 +9,7 @@ export function KnowledgeBaseScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getFacts()
+    api.getFacts(500)
       .then(data => setFacts(Array.isArray(data) ? data : []))
       .catch(err => console.error("Failed to load facts:", err))
       .finally(() => setLoading(false));

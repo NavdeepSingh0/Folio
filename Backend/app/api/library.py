@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import uuid
+import logging
+import hashlib
+from datetime import datetime, timedelta, timezone
 
 from ..models.database import get_db
 from ..models import schema, pydantic_schemas
@@ -13,6 +16,54 @@ from app.utils.auth_deps import get_current_user_id  # re-exported for other rou
 from app.utils.limits import MAX_ATTACHMENT_BYTES, ATTACHMENT_EXTENSIONS, read_limited
 
 router = APIRouter(prefix="/api", tags=["Library"])
+logger = logging.getLogger(__name__)
+STORAGE_BUCKET = "studyforge-storage"
+
+
+STUCK_PROCESSING_AFTER = timedelta(minutes=15)
+
+
+def content_hash(markdown: Optional[str]) -> str:
+    """SHA-256 hex of the exact stored markdown; the save-conflict revision token."""
+    return hashlib.sha256((markdown or "").encode("utf-8")).hexdigest()
+
+
+def sweep_stuck_processing(db: Session, user_id: Optional[int] = None) -> None:
+    """Marks files left in 'processing' (e.g. by a restart mid-upload) as failed.
+
+    Uses created_at because files has no updated_at column; adding an updated_at
+    migration is the long-term fix. Re-extracting facts after edits is out of scope.
+    """
+    cutoff = datetime.now(timezone.utc) - STUCK_PROCESSING_AFTER
+    query = db.query(schema.File).filter(
+        schema.File.status == "processing",
+        schema.File.created_at < cutoff,
+    )
+    if user_id is not None:
+        query = query.filter(schema.File.user_id == user_id)
+    if query.update({"status": "failed: interrupted"}, synchronize_session=False):
+        db.commit()
+
+
+def _remove_from_storage(paths: List[str]) -> None:
+    """Removes objects in one storage call; failures are logged, not raised."""
+    if not paths:
+        return
+    try:
+        supabase.storage.from_(STORAGE_BUCKET).remove(paths)
+    except Exception:
+        logger.warning("Failed to remove %d object(s) from storage", len(paths), exc_info=True)
+
+
+def _delete_files_bulk(db: Session, file_ids: List[int]) -> None:
+    """Deletes files with their attachments (DB and storage) and facts. Caller commits."""
+    if not file_ids:
+        return
+    paths = [p for (p,) in db.query(schema.Attachment.storage_path).filter(schema.Attachment.file_id.in_(file_ids)).all()]
+    _remove_from_storage(paths)
+    db.query(schema.Attachment).filter(schema.Attachment.file_id.in_(file_ids)).delete(synchronize_session=False)
+    db.query(schema.Fact).filter(schema.Fact.file_id.in_(file_ids)).delete(synchronize_session=False)
+    db.query(schema.File).filter(schema.File.id.in_(file_ids)).delete(synchronize_session=False)
 
 # ==========================================
 # FOLDERS ENDPOINTS
@@ -85,23 +136,9 @@ def delete_folder(folder_id: int, keep_notes: bool = True, db: Session = Depends
         # Unassign all files in this folder before deleting
         db.query(schema.File).filter(schema.File.folder_id == folder_id).update({"folder_id": None})
     else:
-        # Delete all files in this folder
-        files = db.query(schema.File).filter(schema.File.folder_id == folder_id).all()
-        for f in files:
-            # Delete attachments from DB and Storage
-            attachments = db.query(schema.Attachment).filter(schema.Attachment.file_id == f.id).all()
-            for att in attachments:
-                try:
-                    supabase.storage.from_("studyforge-storage").remove([att.storage_path])
-                except Exception:
-                    pass
-                db.delete(att)
-            
-            # Delete facts
-            db.query(schema.Fact).filter(schema.Fact.file_id == f.id).delete()
-            
-            # Delete file
-            db.delete(f)
+        # Delete all files in this folder with bulk queries instead of per-file loops
+        file_ids = [fid for (fid,) in db.query(schema.File.id).filter(schema.File.folder_id == folder_id).all()]
+        _delete_files_bulk(db, file_ids)
             
     db.delete(db_folder)
     db.commit()
@@ -109,30 +146,47 @@ def delete_folder(folder_id: int, keep_notes: bool = True, db: Session = Depends
 
 
 @router.get("/folders/{folder_id}/files", response_model=List[pydantic_schemas.FileSummaryResponse])
-def get_files_by_folder(folder_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_files_by_folder(
+    folder_id: int,
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    sweep_stuck_processing(db, user_id)
     return db.query(schema.File).filter(
         schema.File.user_id == user_id,
         schema.File.folder_id == folder_id
-    ).order_by(schema.File.created_at.desc()).all()
+    ).order_by(schema.File.created_at.desc(), schema.File.id.desc()).offset(offset).limit(limit).all()
 
 # ==========================================
 # FILES ENDPOINTS (Library specific)
 # ==========================================
 
 @router.get("/files/unassigned", response_model=List[pydantic_schemas.FileSummaryResponse])
-def get_unassigned_files(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_unassigned_files(
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    sweep_stuck_processing(db, user_id)
     return db.query(schema.File).filter(
         schema.File.user_id == user_id, 
         schema.File.folder_id == None
-    ).order_by(schema.File.created_at.desc()).all()
+    ).order_by(schema.File.created_at.desc(), schema.File.id.desc()).offset(offset).limit(limit).all()
 
-@router.put("/files/{file_id}", response_model=pydantic_schemas.FileSummaryResponse)
+@router.put("/files/{file_id}", response_model=pydantic_schemas.FileUpdateResponse)
 def update_file(file_id: int, file_update: pydantic_schemas.FileUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     db_file = db.query(schema.File).filter(schema.File.id == file_id, schema.File.user_id == user_id).first()
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
     
     update_data = file_update.model_dump(exclude_unset=True)
+    expected_hash = update_data.pop("expected_hash", None)
+    # Optimistic concurrency without a schema change: compare content hashes
+    if expected_hash is not None and expected_hash != content_hash(db_file.markdown_content):
+        raise HTTPException(status_code=409, detail="Note changed on server")
     # Prevent moving a file into a folder owned by another user
     if update_data.get("folder_id") is not None:
         target_folder = db.query(schema.Folder).filter(schema.Folder.id == update_data["folder_id"], schema.Folder.user_id == user_id).first()
@@ -145,28 +199,17 @@ def update_file(file_id: int, file_update: pydantic_schemas.FileUpdate, db: Sess
         
     db.commit()
     db.refresh(db_file)
-    return db_file
+    response = pydantic_schemas.FileUpdateResponse.model_validate(db_file)
+    response.content_hash = content_hash(db_file.markdown_content)
+    return response
 
 @router.delete("/files/{file_id}")
 def delete_file(file_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     db_file = db.query(schema.File).filter(schema.File.id == file_id, schema.File.user_id == user_id).first()
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
-        
-    # Delete attachments from DB and Storage
-    attachments = db.query(schema.Attachment).filter(schema.Attachment.file_id == file_id).all()
-    for att in attachments:
-        try:
-            supabase.storage.from_("studyforge-storage").remove([att.storage_path])
-        except Exception:
-            pass
-        db.delete(att)
-    
-    # Delete facts
-    db.query(schema.Fact).filter(schema.Fact.file_id == file_id).delete()
-    
-    # Delete file
-    db.delete(db_file)
+
+    _delete_files_bulk(db, [file_id])
     db.commit()
     return {"message": "File deleted successfully"}
 
@@ -175,7 +218,11 @@ def get_file(file_id: int, db: Session = Depends(get_db), user_id: int = Depends
     db_file = db.query(schema.File).filter(schema.File.id == file_id, schema.File.user_id == user_id).first()
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
-    return db_file
+    sweep_stuck_processing(db, user_id)
+    db.refresh(db_file)
+    response = pydantic_schemas.FileResponse.model_validate(db_file)
+    response.content_hash = content_hash(db_file.markdown_content)
+    return response
 
 @router.get("/files", response_model=List[pydantic_schemas.FileSummaryResponse])
 def get_all_files(
@@ -188,6 +235,7 @@ def get_all_files(
 
     Clients page with limit/offset until a page shorter than limit arrives.
     """
+    sweep_stuck_processing(db, user_id)
     return db.query(schema.File).filter(
         schema.File.user_id == user_id
     ).order_by(
@@ -196,11 +244,18 @@ def get_all_files(
     ).offset(offset).limit(limit).all()
 
 @router.get("/facts", response_model=List[pydantic_schemas.FactResponse])
-def get_all_facts(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
-    """Get all facts extracted from the user's files."""
-    return db.query(schema.Fact).join(schema.File).filter(
-        schema.File.user_id == user_id
-    ).order_by(schema.Fact.created_at.desc()).all()
+def get_all_facts(
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    file_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Get one page of facts extracted from the user's files, optionally for one file."""
+    query = db.query(schema.Fact).join(schema.File).filter(schema.File.user_id == user_id)
+    if file_id is not None:
+        query = query.filter(schema.Fact.file_id == file_id)
+    return query.order_by(schema.Fact.created_at.desc(), schema.Fact.id.desc()).offset(offset).limit(limit).all()
 
 # ==========================================
 # ATTACHMENTS ENDPOINTS
@@ -267,10 +322,7 @@ def delete_attachment(attachment_id: int, db: Session = Depends(get_db), user_id
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
 
-    try:
-        supabase.storage.from_("studyforge-storage").remove([attachment.storage_path])
-    except Exception:
-        pass
+    _remove_from_storage([attachment.storage_path])
 
     db.delete(attachment)
     db.commit()

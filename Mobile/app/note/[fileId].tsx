@@ -91,6 +91,18 @@ export default function NoteReaderScreen() {
   const noteContentRef = useRef<Map<string, string>>(new Map());
   const [noteContentVersion, setNoteContentVersion] = useState(0);
 
+  // Guards against a slower load for a previous note overwriting the current one
+  const loadIdRef = useRef(0);
+
+  // Clear the previous note immediately so it never shows under the new title
+  useEffect(() => {
+    setContent('');
+    setFileData(null);
+    setAttachments([]);
+    setActiveAttachment(null);
+    setIsEdgeTabOpen(false);
+  }, [fileId]);
+
   useEffect(() => {
     if (initialized && userId) {
       loadNote();
@@ -109,6 +121,8 @@ export default function NoteReaderScreen() {
   }, [openNoteIds]);
 
   const loadNote = async () => {
+    const loadId = ++loadIdRef.current;
+    const isStale = () => loadId !== loadIdRef.current;
     setLoading(true);
     const cacheKey = `note_${fileId}`;
     const filesKey = `all_files`;
@@ -143,15 +157,17 @@ export default function NoteReaderScreen() {
       cache.set(foldersKey, foldersData);
       cache.set(cacheKey, currentFile.markdown_content || '');
       cache.set(attKey, atts);
+      noteContentRef.current.set(fileId as string, currentFile.markdown_content || '');
+      if (isStale()) return;
 
       setFileData(currentFile);
       setAllFiles(files);
       setFolders(foldersData);
       setContent(currentFile.markdown_content || '');
-      noteContentRef.current.set(fileId as string, currentFile.markdown_content || '');
       setNoteContentVersion(v => v + 1);
       setAttachments(atts || []);
     } catch (error) {
+      if (isStale()) return;
       console.error("Failed to load note:", error);
       // OFFLINE FALLBACK
       const contentFallback = cache.getOfflineFallback<string>(cacheKey);
@@ -164,17 +180,9 @@ export default function NoteReaderScreen() {
         if (f) setFileData(f);
       }
       const attFallback = cache.getOfflineFallback<any[]>(attKey);
-      if (attFallback && attFallback.length > 0) {
-        setAttachments(attFallback);
-      } else {
-        // Force mock attachments if offline and no cache
-        setAttachments([
-          { id: 1, filename: "study_guide.pdf" },
-          { id: 2, filename: "reference.pdf" }
-        ]);
-      }
+      if (attFallback) setAttachments(attFallback);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   };
 
@@ -316,10 +324,7 @@ export default function NoteReaderScreen() {
 
       {/* ── Modals and Bottom Sheets (rendered outside so they can overlay the switcher if needed) ── */}
       <AttachmentPicker 
-        attachments={attachments.length > 0 ? attachments : [
-          { id: '1', filename: 'Syllabus.pdf' },
-          { id: '2', filename: 'diagram.png' }
-        ]} 
+        attachments={attachments} 
         isOpen={isAttachmentPickerOpen} 
         onClose={() => setIsAttachmentPickerOpen(false)}
         onSelect={handleAttachmentSelect}

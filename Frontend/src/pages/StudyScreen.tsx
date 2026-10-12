@@ -196,8 +196,15 @@ export function StudyScreen() {
       if (signal.aborted) return;
       cache.set(`study_file_${fileId}`, stripBody(data));
       if (isDirtyRef.current) {
-        // The user started editing the cached copy; keep their buffer.
-        setFileData(data);
+        // The user started editing the cached copy; keep their buffer. If the server
+        // copy moved on, keep the old revision so saving raises the conflict prompt
+        // instead of silently overwriting, and tell the user now.
+        const serverMoved = !!cachedMeta?.content_hash && cachedMeta.content_hash !== data.content_hash;
+        setFileData(serverMoved ? { ...data, content_hash: cachedMeta.content_hash } : data);
+        if (serverMoved) {
+          setSaveStatus("Note updated on server; your unsaved edits are kept");
+          setTimeout(() => setSaveStatus(null), 4000);
+        }
       } else {
         applyFile(data);
       }
@@ -229,12 +236,25 @@ export function StudyScreen() {
     try {
       setSaveStatus("Saving...");
       // PUT returns a summary without the body; keep the local buffer.
-      await api.updateFile(id, { markdown_content: content });
-      if (savedFileData) {
-        cache.set(`study_file_${id}`, stripBody(savedFileData));
+      // expected_hash makes the server reject the save if another tab/device changed the note.
+      let summary: any;
+      try {
+        summary = await api.updateFile(id, { markdown_content: content, expected_hash: savedFileData?.content_hash ?? null });
+      } catch (err: any) {
+        if (err?.status !== 409) throw err;
+        setSaveStatus("Note changed on server: reload or overwrite");
+        const overwrite = window.confirm(
+          "This note changed on the server since you opened it.\n\nOK: overwrite it with your version.\nCancel: keep editing (reload the note to see the server version)."
+        );
+        if (!overwrite) return;
+        summary = await api.updateFile(id, { markdown_content: content });
+      }
+      const nextFileData = savedFileData ? { ...savedFileData, content_hash: summary?.content_hash } : null;
+      if (nextFileData) {
+        cache.set(`study_file_${id}`, stripBody(nextFileData));
       }
       if (fileIdRef.current === id) {
-        setFileData((prev: any) => prev ? { ...prev, markdown_content: content } : prev);
+        setFileData((prev: any) => prev ? { ...prev, markdown_content: content, content_hash: summary?.content_hash } : prev);
         setBaselineMarkdown(content);
       }
       setSaveStatus("Saved!");
@@ -298,26 +318,69 @@ export function StudyScreen() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Enter followed by the resulting blur would otherwise submit a rename twice
+  const isRenamingRef = useRef(false);
   const saveFileName = async () => {
+    if (isRenamingRef.current) return;
+    // Stays set until the next edit starts, so the blur from unmounting the input is ignored
+    isRenamingRef.current = true;
     if (editNameValue.trim() === "" || !fileId) {
       setEditingName(false);
       return;
     }
+    const id = fileId;
+    const name = editNameValue.trim();
     try {
-      await api.updateFile(fileId, { name: editNameValue.trim() });
-      setFileData({ ...fileData, name: editNameValue.trim() });
+      await api.updateFile(id, { name });
+      if (fileIdRef.current === id) {
+        setFileData((prev: any) => prev ? { ...prev, name } : prev);
+      }
     } catch (err) {
       console.error(err);
     }
     setEditingName(false);
   };
 
+  const deleteAttachment = async (att: any) => {
+    // Optimistic removal, restored if the server rejects it
+    setPanelAttachments(prev => prev.filter(a => a.id !== att.id));
+    try {
+      await api.deleteAttachment(att.id);
+    } catch (err) {
+      console.error("Failed to delete attachment", err);
+      setPanelAttachments(prev => prev.some(a => a.id === att.id) ? prev : [att, ...prev]);
+      setSaveStatus("Couldn't delete attachment");
+      setTimeout(() => setSaveStatus(null), 2000);
+    }
+  };
+
+  const isRenamingAttachmentRef = useRef(false);
+  const renameAttachment = async (att: any) => {
+    if (isRenamingAttachmentRef.current) return;
+    const name = editAttachmentValue.trim();
+    // Stays set until the next edit starts, so the blur from unmounting the input is ignored
+    isRenamingAttachmentRef.current = true;
+    if (name !== "" && name !== att.filename) {
+      try {
+        const res = await api.updateAttachment(att.id, name);
+        setPanelAttachments(prev => prev.map(a => a.id === att.id ? res : a));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    setEditingAttachmentId(null);
+  };
+
   // Uploads an image dropped/pasted into the editor and returns its URL;
   // NoteEditorPane handles the placeholder insert and replacement.
   const uploadEditorImage = async (file: File) => {
     if (!fileId) throw new Error("No file loaded");
-    const uploadedAtt = await api.uploadAttachment(fileId, file);
-    setPanelAttachments(prev => [uploadedAtt, ...prev]);
+    // Bind the upload to the note it was dropped into, even if the user switches tabs
+    const id = fileId;
+    const uploadedAtt = await api.uploadAttachment(id, file);
+    if (fileIdRef.current === id) {
+      setPanelAttachments(prev => [uploadedAtt, ...prev]);
+    }
     return uploadedAtt.public_url as string;
   };
 
@@ -356,7 +419,7 @@ export function StudyScreen() {
                     className="text-sm font-medium w-full bg-transparent border-b border-primary outline-none"
                   />
                 ) : (
-                  <div className="flex-1 flex items-center gap-2 overflow-hidden" onClick={(e) => { if (isActive) { e.stopPropagation(); setEditingName(true); } }} title={isActive ? "Click to rename" : tab.name}>
+                  <div className="flex-1 flex items-center gap-2 overflow-hidden" onClick={(e) => { if (isActive) { e.stopPropagation(); isRenamingRef.current = false; setEditingName(true); } }} title={isActive ? "Click to rename" : tab.name}>
                     <span className={`text-sm truncate ${isActive ? 'font-medium text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>{tab.name}</span>
                     {isActive && <Edit2 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />}
                   </div>
@@ -543,9 +606,9 @@ export function StudyScreen() {
                             <p className="text-sm">No attachments yet.<br/>Upload reference files here.</p>
                           </div>
                         ) : (
-                          panelAttachments.map((f, i) => (
-                            <div key={i} onClick={() => setPreviewAttachment(f)} className="group border border-border rounded-lg overflow-hidden bg-surface hover:border-primary transition-colors cursor-pointer shadow-sm relative flex flex-col">
-                              <button onClick={(e) => { e.stopPropagation(); api.deleteAttachment(f.id); setPanelAttachments(prev => prev.filter(att => att.id !== f.id)); }} className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-all z-10">
+                          panelAttachments.map((f) => (
+                            <div key={f.id} onClick={() => setPreviewAttachment(f)} className="group border border-border rounded-lg overflow-hidden bg-surface hover:border-primary transition-colors cursor-pointer shadow-sm relative flex flex-col">
+                              <button onClick={(e) => { e.stopPropagation(); deleteAttachment(f); }} className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-all z-10">
                                 <X className="w-3 h-3" />
                               </button>
                               <div className="h-28 bg-muted flex items-center justify-center relative overflow-hidden">
@@ -567,30 +630,14 @@ export function StudyScreen() {
                                     value={editAttachmentValue}
                                     onChange={(e) => setEditAttachmentValue(e.target.value)}
                                     onClick={e => e.stopPropagation()}
-                                    onBlur={async () => {
-                                      if (editAttachmentValue.trim() !== "") {
-                                        try {
-                                          const res = await api.updateAttachment(f.id, editAttachmentValue.trim());
-                                          setPanelAttachments(prev => prev.map(a => a.id === f.id ? res : a));
-                                        } catch (err) { console.error(err); }
-                                      }
-                                      setEditingAttachmentId(null);
-                                    }}
-                                    onKeyDown={async (e) => {
-                                      if (e.key === 'Enter') {
-                                        if (editAttachmentValue.trim() !== "") {
-                                          try {
-                                            const res = await api.updateAttachment(f.id, editAttachmentValue.trim());
-                                            setPanelAttachments(prev => prev.map(a => a.id === f.id ? res : a));
-                                          } catch (err) { console.error(err); }
-                                        }
-                                        setEditingAttachmentId(null);
-                                      }
+                                    onBlur={() => renameAttachment(f)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') renameAttachment(f);
                                     }}
                                     className="text-[13px] font-medium w-full bg-background text-foreground border border-primary px-1 outline-none rounded"
                                   />
                                 ) : (
-                                  <div className="overflow-hidden flex-1 group/title cursor-text flex items-center gap-1" onClick={(e) => { e.stopPropagation(); setEditingAttachmentId(f.id); setEditAttachmentValue(f.filename); }}>
+                                  <div className="overflow-hidden flex-1 group/title cursor-text flex items-center gap-1" onClick={(e) => { e.stopPropagation(); isRenamingAttachmentRef.current = false; setEditingAttachmentId(f.id); setEditAttachmentValue(f.filename); }}>
                                     <h4 className="text-[13px] font-medium truncate" title={f.filename}>{f.filename}</h4>
                                     <Edit2 className="w-3 h-3 text-muted-foreground opacity-0 group-hover/title:opacity-100 transition-opacity shrink-0" />
                                   </div>

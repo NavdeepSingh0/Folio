@@ -1,6 +1,10 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
+import { storage } from '../cache';
+
+const STUDY_REMINDER_PREFIX = 'study-reminder-';
+const LAST_SCHEDULED_KEY = 'notifications.lastScheduled';
 
 // Configure how notifications behave when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -49,8 +53,17 @@ export async function setupLocalNotifications() {
     }
   }
 
-  // Cancel previously scheduled notifications so we don't duplicate them on every app load
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  // Top up at most once per day
+  const today = new Date().toDateString();
+  if (storage.getString(LAST_SCHEDULED_KEY) === today) return;
+
+  // Cancel only our study reminders so exam reminders survive
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled
+      .filter(n => n.identifier.startsWith(STUDY_REMINDER_PREFIX))
+      .map(n => Notifications.cancelScheduledNotificationAsync(n.identifier))
+  );
 
   // TEST NOTIFICATION: Fire 5 seconds from now so the user can see it!
   //await Notifications.scheduleNotificationAsync({
@@ -81,6 +94,7 @@ export async function setupLocalNotifications() {
 
     if (d12 > now) {
       await Notifications.scheduleNotificationAsync({
+        identifier: `${STUDY_REMINDER_PREFIX}${i}-12`,
         content: { title: "Folio 📚", body: msg12, sound: true },
         trigger: { date: d12, type: 'date' as const },
       });
@@ -88,11 +102,14 @@ export async function setupLocalNotifications() {
 
     if (d19 > now) {
       await Notifications.scheduleNotificationAsync({
+        identifier: `${STUDY_REMINDER_PREFIX}${i}-19`,
         content: { title: "Folio 🌙", body: msg19, sound: true },
         trigger: { date: d19, type: 'date' as const },
       });
     }
   }
+
+  storage.set(LAST_SCHEDULED_KEY, today);
 }
 
 // Function to schedule a custom exam reminder

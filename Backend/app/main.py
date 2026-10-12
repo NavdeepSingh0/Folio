@@ -39,6 +39,19 @@ app.include_router(upload_router)
 app.include_router(auth_router)
 app.include_router(chat_router)
 
+@app.on_event("startup")
+def sweep_interrupted_uploads():
+    # Files left in "processing" by a restart would otherwise spin forever
+    from app.models.database import SessionLocal
+    from app.api.library import sweep_stuck_processing
+    db = SessionLocal()
+    try:
+        sweep_stuck_processing(db)
+    except Exception as e:
+        print(f"WARNING: stuck-processing sweep failed: {e}")
+    finally:
+        db.close()
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to Folio API"}

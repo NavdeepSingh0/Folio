@@ -1,7 +1,7 @@
 import io
 import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from google.genai import types
@@ -140,6 +140,9 @@ def chat_with_assistant(
             schema.File.id == context_file_id,
             schema.File.user_id == user_id
         ).first()
+        # A new session for a missing or foreign file is an error, not general chat
+        if db_file is None and chat_session is None:
+            raise HTTPException(status_code=404, detail="File not found")
         if db_file and db_file.markdown_content:
             system_instruction = build_chat_system_instruction(db_file.markdown_content)
             if chat_session is None:
@@ -237,6 +240,16 @@ def highlight_to_ask(
 
 
 @router.get("/history", response_model=List[pydantic_schemas.ChatSessionResponse])
-def get_chat_history(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
-    """Retrieves all past chat sessions for the user."""
-    return db.query(schema.ChatSession).filter(schema.ChatSession.user_id == user_id).order_by(schema.ChatSession.created_at.desc()).all()
+def get_chat_history(
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Retrieves one page of past chat sessions for the user, newest first."""
+    return db.query(schema.ChatSession).filter(
+        schema.ChatSession.user_id == user_id
+    ).order_by(
+        schema.ChatSession.created_at.desc(),
+        schema.ChatSession.id.desc(),
+    ).offset(offset).limit(limit).all()

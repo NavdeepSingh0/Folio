@@ -1,6 +1,7 @@
 import { createMMKV } from 'react-native-mmkv';
 
-const storage = createMMKV();
+// Shared MMKV instance; import this instead of creating new ones
+export const storage = createMMKV();
 // Cache is considered fresh for 5 minutes, but we keep the data forever for offline fallback
 const FRESH_TTL_MS = 5 * 60 * 1000;
 
