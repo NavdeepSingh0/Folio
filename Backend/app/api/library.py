@@ -8,33 +8,10 @@ from ..models.database import get_db
 from ..models import schema, pydantic_schemas
 from app.utils.supabase_client import supabase
 
+from app.utils.auth_deps import get_current_user_id  # re-exported for other routers
+from app.utils.limits import MAX_ATTACHMENT_BYTES, ATTACHMENT_EXTENSIONS, read_limited
+
 router = APIRouter(prefix="/api", tags=["Library"])
-
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
-security = HTTPBearer()
-
-def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
-    token = credentials.credentials
-    # Verify JWT with Supabase
-    auth_response = supabase.auth.get_user(token)
-    if not auth_response or not auth_response.user:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-        
-    user_email = auth_response.user.email
-    # Find user by email in local DB, or create them if it's their first time syncing
-    user = db.query(schema.User).filter(schema.User.email == user_email).first()
-    if not user:
-        user = schema.User(username=user_email.split('@')[0], email=user_email)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        
-    return user.id
-
 
 # ==========================================
 # FOLDERS ENDPOINTS
@@ -211,7 +188,7 @@ def get_all_facts(db: Session = Depends(get_db), user_id: int = Depends(get_curr
 # ==========================================
 
 @router.post("/files/{file_id}/attachments", response_model=pydantic_schemas.AttachmentResponse)
-async def upload_attachment(
+def upload_attachment(
     file_id: int, 
     file: UploadFile = File(...), 
     db: Session = Depends(get_db), 
@@ -222,8 +199,13 @@ async def upload_attachment(
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
 
-    file_bytes = await file.read()
-    file_ext = file.filename.split('.')[-1] if '.' in file.filename else ''
+    file_ext = file.filename.split('.')[-1].lower() if file.filename and '.' in file.filename else ''
+    if file_ext not in ATTACHMENT_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Unsupported attachment type")
+
+    file_bytes = read_limited(file.file, MAX_ATTACHMENT_BYTES)
+    if file_bytes is None:
+        raise HTTPException(status_code=413, detail="Attachment exceeds the 20 MB limit")
     storage_path = f"attachments/{user_id}/{file_id}/{uuid.uuid4()}.{file_ext}"
 
     # Upload to Supabase Storage

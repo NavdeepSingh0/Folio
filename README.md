@@ -103,6 +103,8 @@ python -m uvicorn app.main:app --reload
 ```
 Note: Ensure your `.env` file is populated with your Supabase and AI API keys.
 
+Optional: set `SUPABASE_JWT_SECRET` (Supabase dashboard > Project Settings > API > JWT Secret) so the backend verifies HS256 access tokens locally instead of calling Supabase on every request. If it's unset, the backend falls back to `supabase.auth.get_user`, with results cached for up to 5 minutes.
+
 ### 2. Frontend Setup (React/Vite)
 Navigate to the `Frontend` directory:
 ```bash

@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 from functools import lru_cache
 from typing import List, Dict, Any
@@ -15,6 +16,28 @@ PLACEHOLDER_KEY = "your_gemini_key_here"
 REQUEST_TIMEOUT_MS = 120_000
 FACTS_MAX_OUTPUT_TOKENS = 8192
 FACTS_INPUT_CHAR_LIMIT = 15000
+CHAT_DOC_CHAR_LIMIT = 60_000
+CHAT_HISTORY_TURNS = 20
+
+_MD_DATA_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(\s*data:[^)]*\)", re.IGNORECASE)
+_HTML_DATA_IMAGE_RE = re.compile(r"<img\b[^>]*\bsrc\s*=\s*[\"']?data:[^>]*>", re.IGNORECASE)
+
+
+def strip_data_uris(md: str) -> str:
+    """Replaces inline base64 images (markdown or <img>) with a short placeholder."""
+    md = _MD_DATA_IMAGE_RE.sub("[image]", md)
+    return _HTML_DATA_IMAGE_RE.sub("[image]", md)
+
+
+def build_chat_system_instruction(document_md: str) -> str:
+    """Builds the chat system instruction from a document, without inline images and capped in size."""
+    doc = strip_data_uris(document_md)
+    if len(doc) > CHAT_DOC_CHAR_LIMIT:
+        doc = doc[:CHAT_DOC_CHAR_LIMIT] + "\n\n[Document truncated]"
+    return (
+        "You are a helpful study assistant. The user is currently reading this document:"
+        f"\n\n---\n{doc}\n---\n\nAnswer all questions based heavily on this document."
+    )
 
 
 class AIError(Exception):
