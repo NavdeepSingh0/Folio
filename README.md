@@ -1,4 +1,8 @@
-# Folio
+<div align="center">
+  <img width="200 alt="Folio" src="https://github.com/user-attachments/assets/6c34e1b7-8893-402e-ab9d-94a122e13e66" />
+  <h1>Folio</h1>
+  <p><strong>Cross-Platform Study Companion</strong></p>
+</div>
 
 Folio turns your raw study material into clean, structured notes you can read, edit and ask questions about. You upload a PDF, slide deck, Word document, Markdown file or image. The backend parses it and stores it as Markdown, and Gemini extracts key facts into a personal knowledge base. You can then study the note on the web or on Android, with math, code highlighting, embedded images, attachments and an AI chat that knows the note you're looking at.
 
