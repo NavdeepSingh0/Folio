@@ -42,7 +42,7 @@ export default function MobileSidebar() {
 
   const loadData = async () => {
     try {
-      const allFiles = await api.getAllFiles();
+      const allFiles = await api.getAllFiles(6);
       setRecentNotes(allFiles.slice(0, 6)); 
       
       const allFolders = await api.getFolders();

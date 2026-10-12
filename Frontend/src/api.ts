@@ -66,7 +66,17 @@ export const api = {
 
   // --- Facts ---
   getUnassignedFiles: () => apiFetch(`${BASE_URL}/files/unassigned`).then(res => res.json()),
-  getAllFiles: () => apiFetch(`${BASE_URL}/files`).then(res => res.json()),
+  getAllFiles: (limit = 100, offset = 0) => apiFetch(`${BASE_URL}/files?limit=${limit}&offset=${offset}`).then(res => res.json()),
+  // Loops /files pages until a short page arrives
+  fetchAllFiles: async (): Promise<any[]> => {
+    const pageSize = 100;
+    const all: any[] = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await api.getAllFiles(pageSize, offset);
+      all.push(...page);
+      if (page.length < pageSize) return all;
+    }
+  },
   getFile: (id: string | number, signal?: AbortSignal) => apiFetch(`${BASE_URL}/files/${id}`, { signal }).then(res => res.json()),
   getFacts: () => apiFetch(`${BASE_URL}/facts`).then(res => res.json()),
   updateFile: (id: string | number, data: { name?: string, folder_id?: string | number | null, markdown_content?: string }) =>

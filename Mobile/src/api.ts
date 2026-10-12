@@ -59,19 +59,11 @@ export const api = {
     const res = await apiFetch(`${BASE_URL}/files/${fileId}/attachments`, {
       method: 'POST',
       body: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Upload failed");
-    }
     return res.json();
   },
   getAttachments: async (fileId: string | number) => {
     const res = await apiFetch(`${BASE_URL}/files/${fileId}/attachments`);
-    if (!res.ok) throw new Error();
     return await res.json();
   },
   deleteAttachment: (id: string | number) => apiFetch(`${BASE_URL}/attachments/${id}`, { method: 'DELETE' }).then(res => res.json()),
@@ -83,11 +75,20 @@ export const api = {
 
   // --- Facts ---
   getUnassignedFiles: () => apiFetch(`${BASE_URL}/files/unassigned`).then(res => res.json()),
-  getAllFiles: () => apiFetch(`${BASE_URL}/files`).then(res => res.json()),
+  getAllFiles: (limit = 100, offset = 0) => apiFetch(`${BASE_URL}/files?limit=${limit}&offset=${offset}`).then(res => res.json()),
+  // Loops /files pages until a short page arrives
+  fetchAllFiles: async (): Promise<any[]> => {
+    const pageSize = 100;
+    const all: any[] = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await api.getAllFiles(pageSize, offset);
+      all.push(...page);
+      if (page.length < pageSize) return all;
+    }
+  },
   getFile: (id: string | number) => apiFetch(`${BASE_URL}/files/${id}`).then(res => res.json()),
   getFileContent: async (id: string | number) => {
     const res = await apiFetch(`${BASE_URL}/files/${id}`);
-    if (!res.ok) throw new Error('not found');
     const data = await res.json();
     if (typeof data === 'string') return data;
     return data.markdown_content || data.content || data.markdown || data.text || '';
@@ -112,9 +113,6 @@ export const api = {
     return apiFetch(`${BASE_URL}/upload`, {
       method: 'POST',
       body: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
     }).then(res => res.json());
   },
 
@@ -139,9 +137,6 @@ export const api = {
     return apiFetch(`${BASE_URL}/chat`, {
       method: 'POST',
       body: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    }).then(res => res.json());
   }
 };

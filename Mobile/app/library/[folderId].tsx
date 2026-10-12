@@ -9,7 +9,6 @@ import { api } from '../../src/api';
 import { cache } from '../../src/cache';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function FolderScreen() {
   const { folderId } = useLocalSearchParams();
@@ -68,15 +67,27 @@ export default function FolderScreen() {
     });
   };
 
-  const handleDeleteFolder = () => {
-    Alert.alert("Delete Folder", "Are you sure you want to delete this folder?", [
-      { text: "Cancel" },
-      { text: "Delete", style: "destructive", onPress: () => { /* Logic here */ } }
+  const handleDeleteFile = (file: any) => {
+    Alert.alert("Delete Note", `Are you sure you want to delete "${file.name}"?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        try {
+          await api.deleteFile(file.id);
+          setFiles(prev => {
+            const next = prev.filter(f => f.id !== file.id);
+            cache.set(`folder_files_${folderId}`, next);
+            return next;
+          });
+          cache.invalidate('all_files', 'home_data', 'library_folders');
+        } catch (e: any) {
+          Alert.alert('Delete Failed', e.message);
+        }
+      }}
     ]);
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <>
       <SafeAreaView className="flex-1 bg-background" edges={['top', 'left', 'right']}>
         
         <View className="flex-row items-center justify-between px-6 py-4 border-b border-border bg-background">
@@ -135,7 +146,7 @@ export default function FolderScreen() {
                           <Text className="text-muted-foreground text-[13px]">{formatDate(file.created_at)}</Text>
                         </View>
                         <View className="flex-row items-center">
-                          <TouchableOpacity onPress={handleDeleteFolder} className="p-2">
+                          <TouchableOpacity onPress={() => handleDeleteFile(file)} className="p-2">
                             <Trash2 size={20} color="#ef4444" />
                           </TouchableOpacity>
                           <TouchableOpacity className="p-2">
@@ -152,6 +163,6 @@ export default function FolderScreen() {
         )}
 
       </SafeAreaView>
-    </GestureHandlerRootView>
+    </>
   );
 }

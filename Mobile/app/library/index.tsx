@@ -1,6 +1,6 @@
 // Refactored with NativeWind
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, RefreshControl, useColorScheme as useSystemColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, RefreshControl, useColorScheme as useSystemColorScheme } from 'react-native';
 import { useThemeStore } from '../../src/store/themeStore';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -109,10 +109,9 @@ export default function LibraryScreen() {
       if (result.canceled) return;
       
       setUploading(true);
-      // Wait for 1s to simulate upload processing
-      await new Promise(r => setTimeout(r, 1000));
+      await api.uploadFile(result.assets[0]);
       Alert.alert('Upload Successful', `Added ${result.assets[0].name} to Library.`);
-      cache.invalidate('library_folders', 'home_data');
+      cache.invalidate('library_folders', 'home_data', 'all_files');
       loadFolders(true);
     } catch (e: any) {
       Alert.alert('Upload Failed', e.message);
@@ -121,25 +120,26 @@ export default function LibraryScreen() {
     }
   };
 
+  // Alert.prompt is iOS-only, so folder naming uses a cross-platform modal
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
   const handleCreateFolder = () => {
-    Alert.prompt(
-      "New Folder",
-      "Enter a name for the new folder:",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Create", 
-          onPress: async (name) => {
-            if (name?.trim()) {
-              await api.createFolder(name.trim());
-              cache.invalidate('library_folders');
-              loadFolders(true);
-            }
-          }
-        }
-      ],
-      "plain-text"
-    );
+    setNewFolderName('');
+    setNewFolderOpen(true);
+  };
+
+  const submitNewFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    setNewFolderOpen(false);
+    try {
+      await api.createFolder(name);
+      cache.invalidate('library_folders');
+      loadFolders(true);
+    } catch (e: any) {
+      Alert.alert('Could not create folder', e.message);
+    }
   };
 
   const [actionFolder, setActionFolder] = useState<any>(null);
@@ -243,6 +243,33 @@ export default function LibraryScreen() {
       </TouchableOpacity>
 
       <MobileSidebar />
+
+      {/* New Folder prompt */}
+      <Modal visible={newFolderOpen} transparent animationType="fade" onRequestClose={() => setNewFolderOpen(false)}>
+        <View className="flex-1 justify-center items-center bg-black/40 px-8">
+          <View className="w-full bg-card rounded-2xl p-5 border border-border">
+            <Text className="text-foreground text-lg font-semibold mb-1">New Folder</Text>
+            <Text className="text-muted-foreground text-[14px] mb-4">Enter a name for the new folder:</Text>
+            <TextInput
+              className="bg-background border border-border rounded-xl h-[44px] px-3 text-foreground text-base"
+              placeholder="Folder name"
+              placeholderTextColor={mutedIconColor}
+              value={newFolderName}
+              onChangeText={setNewFolderName}
+              onSubmitEditing={submitNewFolder}
+              autoFocus
+            />
+            <View className="flex-row justify-end gap-4 mt-5">
+              <TouchableOpacity onPress={() => setNewFolderOpen(false)} className="px-3 py-2">
+                <Text className="text-muted-foreground text-base font-semibold">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={submitNewFolder} disabled={!newFolderName.trim()} className="px-3 py-2">
+                <Text className={`text-base font-semibold ${newFolderName.trim() ? 'text-blue-500' : 'text-muted-foreground'}`}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Folder Action Sheet */}
       {actionFolder && (

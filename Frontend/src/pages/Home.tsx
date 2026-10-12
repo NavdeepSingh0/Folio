@@ -28,7 +28,7 @@ export function Home() {
       setPinnedFolders(pinned);
       cache.set('home_pinned', pinned);
 
-      const files = await api.getAllFiles();
+      const files = await api.getAllFiles(6);
       const recent = files.slice(0, 6); // Top 6 most recent files
       setRecentNotes(recent);
       cache.set('home_recent', recent);

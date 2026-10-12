@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
@@ -173,11 +173,22 @@ def get_file(file_id: int, db: Session = Depends(get_db), user_id: int = Depends
     return db_file
 
 @router.get("/files", response_model=List[pydantic_schemas.FileSummaryResponse])
-def get_all_files(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
-    """Get all files for this user (assigned and unassigned), most recent first."""
+def get_all_files(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Get one page of this user's files (assigned and unassigned), newest first.
+
+    Clients page with limit/offset until a page shorter than limit arrives.
+    """
     return db.query(schema.File).filter(
         schema.File.user_id == user_id
-    ).order_by(schema.File.created_at.desc()).limit(20).all()
+    ).order_by(
+        schema.File.created_at.desc(),
+        schema.File.id.desc(),
+    ).offset(offset).limit(limit).all()
 
 @router.get("/facts", response_model=List[pydantic_schemas.FactResponse])
 def get_all_facts(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):

@@ -19,8 +19,12 @@ interface ChatBottomSheetProps {
 export default function ChatBottomSheet({ fileId, isOpen, onClose }: ChatBottomSheetProps) {
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState([
-    { role: 'model', text: "Hello! I'm ready to answer questions about this document." }
+    { id: 0, role: 'model', text: "Hello! I'm ready to answer questions about this document." }
   ]);
+  // Backend chat session per file, sent on follow-ups so replies keep context
+  const [sessionByFile, setSessionByFile] = useState<Record<string, number>>({});
+  const msgIdRef = useRef(0);
+  const nextMsgId = () => ++msgIdRef.current;
   const [isSending, setIsSending] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -89,23 +93,15 @@ export default function ChatBottomSheet({ fileId, isOpen, onClose }: ChatBottomS
     
     const userMsg = message.trim();
     setMessage('');
-    setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
+    setChatHistory(prev => [...prev, { id: nextMsgId(), role: 'user', text: userMsg }]);
     setIsSending(true);
 
     try {
-      const response = await api.sendMessage(userMsg, fileId ? parseInt(fileId) : undefined);
-      const reader = response.body?.getReader();
-      let fullText = '';
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          fullText += new TextDecoder().decode(value);
-        }
-      }
-      setChatHistory(prev => [...prev, { role: 'model', text: fullText || 'No response.' }]);
+      const d = await api.sendMessage(userMsg, fileId ? parseInt(fileId) : undefined, sessionByFile[fileId]);
+      if (d.session_id) setSessionByFile(prev => ({ ...prev, [fileId]: d.session_id }));
+      setChatHistory(prev => [...prev, { id: nextMsgId(), role: 'model', text: d.message || 'No response.' }]);
     } catch (err) {
-      setChatHistory(prev => [...prev, { role: 'model', text: 'Failed to get a response. Please try again.' }]);
+      setChatHistory(prev => [...prev, { id: nextMsgId(), role: 'model', text: 'Failed to get a response. Please try again.' }]);
     } finally {
       setIsSending(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -137,8 +133,8 @@ export default function ChatBottomSheet({ fileId, isOpen, onClose }: ChatBottomS
           contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 8 }}
           showsVerticalScrollIndicator={false}
         >
-          {chatHistory.map((msg, i) => (
-            <View key={i} className={`max-w-[82%] p-3 rounded-2xl ${msg.role === 'user' ? 'self-end bg-primary rounded-br-sm' : 'self-start bg-muted rounded-bl-sm border border-border'}`}>
+          {chatHistory.map((msg) => (
+            <View key={msg.id} className={`max-w-[82%] p-3 rounded-2xl ${msg.role === 'user' ? 'self-end bg-primary rounded-br-sm' : 'self-start bg-muted rounded-bl-sm border border-border'}`}>
               <Text className={`text-[15px] leading-relaxed ${msg.role === 'user' ? 'text-primary-foreground' : 'text-foreground'}`}>
                 {msg.text}
               </Text>

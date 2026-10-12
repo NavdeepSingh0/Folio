@@ -65,7 +65,7 @@ export default function HomeScreen() {
     try {
       const [folders, files] = await Promise.all([
         api.getFolders(),
-        api.getAllFiles(),
+        api.fetchAllFiles(),
       ]);
       const pinned = folders.filter((f: any) => f.is_pinned);
       const recent = files.slice(0, 6);

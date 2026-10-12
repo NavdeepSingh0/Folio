@@ -1,20 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
-  View, Text, TouchableOpacity, TextInput, Dimensions, useColorScheme as useSystemColorScheme
+  View, Text, TouchableOpacity, TextInput, useColorScheme as useSystemColorScheme
 } from 'react-native';
 import { useThemeStore } from '../../src/store/themeStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Plus, Paperclip, MessageSquare, Search, X } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withTiming, runOnJS, useDerivedValue, interpolate } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { api } from '../../src/api';
 import { cache } from '../../src/cache';
 import MobileMarkdown from '../../src/components/mobile/MobileMarkdown';
 import ChatBottomSheet from '../../src/components/mobile/ChatBottomSheet';
 import AttachmentPicker from '../../src/components/mobile/AttachmentPicker';
 import AttachmentEdgeTab from '../../src/components/mobile/AttachmentEdgeTab';
-import NoteStackViewer, { STEP, CARD_W } from '../../src/components/NoteStackViewer';
+import NoteStackViewer from '../../src/components/NoteStackViewer';
 import FilePickerModal from '../../src/components/FilePickerModal';
 import { useAuthStore } from '../../src/store/authStore';
 import { useScrollStore } from '../../src/store/scrollStore';
@@ -134,7 +133,7 @@ export default function NoteReaderScreen() {
 
       // The list is metadata-only; load the full document once for the active reader.
       const [files, foldersData, currentFile, atts] = await Promise.all([
-        api.getAllFiles(),
+        api.fetchAllFiles(),
         api.getFolders().catch(() => []),
         api.getFile(fileId as string),
         api.getAttachments(fileId as string).catch(() => []),
