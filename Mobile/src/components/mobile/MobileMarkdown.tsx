@@ -108,6 +108,15 @@ function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScroll
           max-width: 100%;
           overflow: auto;
         }
+        .markdown-body img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 10px;
+        }
+        .img-fallback {
+          color: ${isDark ? '#9A9AA0' : '#6B6B70'};
+          font-style: italic;
+        }
         ::selection {
           background-color: #3b82f6;
           color: #ffffff;
@@ -127,8 +136,39 @@ function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScroll
         // Setup marked with KaTeX
         marked.use(window.markedKatex({ throwOnError: false }));
         
-        // Parse and inject HTML
-        document.getElementById('content').innerHTML = marked.parse(rawMarkdown);
+        // Parse into a detached template, sanitize, then inject
+        const tpl = document.createElement('template');
+        tpl.innerHTML = marked.parse(rawMarkdown);
+        const SAFE_DATA_IMAGE = /^data:image\\/(png|jpe?g|gif|webp|bmp|avif);base64,[a-z0-9+\\/=\\s]+$/i;
+        tpl.content.querySelectorAll('script, iframe, object, embed, style, link, meta, base, form').forEach((el) => el.remove());
+        tpl.content.querySelectorAll('*').forEach((el) => {
+          Array.from(el.attributes).forEach((attr) => {
+            const name = attr.name.toLowerCase();
+            if (name.startsWith('on')) { el.removeAttribute(attr.name); return; }
+            if (name === 'href' || name === 'src' || name === 'xlink:href') {
+              const v = attr.value.trim().toLowerCase().replace(/[\\s\\u0000-\\u001f]+/g, '');
+              const unsafe = v.startsWith('javascript:') || v.startsWith('vbscript:') ||
+                (v.startsWith('data:') && !SAFE_DATA_IMAGE.test(attr.value.trim()));
+              if (unsafe) el.removeAttribute(attr.name);
+            }
+          });
+        });
+        tpl.content.querySelectorAll('img').forEach((img) => {
+          if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
+          img.setAttribute('loading', 'lazy');
+          const fallback = () => {
+            const alt = img.getAttribute('alt') || '';
+            const span = document.createElement('span');
+            span.className = 'img-fallback';
+            span.setAttribute('role', 'img');
+            span.setAttribute('aria-label', alt);
+            span.textContent = alt ? '[image: ' + alt + ']' : '[image]';
+            img.replaceWith(span);
+          };
+          if (!img.getAttribute('src')) { fallback(); return; }
+          img.addEventListener('error', fallback, { once: true });
+        });
+        document.getElementById('content').appendChild(tpl.content);
 
         // Highlight code blocks
         document.querySelectorAll('pre code').forEach((block) => {
