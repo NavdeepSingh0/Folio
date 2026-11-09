@@ -1,8 +1,9 @@
 import os
 import re
+import json
 import logging
 import threading
-from typing import List, Dict, Any, Optional
+from typing import Iterator, List, Dict, Any, Optional
 
 import httpx
 from json_repair import repair_json
@@ -93,6 +94,16 @@ def get_client() -> httpx.Client:
         return _client
 
 
+def _status_error(status_code: int, body: str, model: str) -> AIError:
+    """Maps an NVIDIA HTTP error status to a user-safe AIError (details are logged)."""
+    logger.error("NVIDIA request failed (model=%s): HTTP %s %s", model, status_code, body[:300])
+    if status_code in (401, 403):
+        return AIError("AI service rejected the API key")
+    if status_code == 429:
+        return AIError("AI service is rate limited, try again shortly")
+    return AIError("AI service request failed")
+
+
 def chat_completion(
     messages: List[Dict[str, Any]],
     max_tokens: int,
@@ -119,12 +130,7 @@ def chat_completion(
         response.raise_for_status()
         data = response.json()
     except httpx.HTTPStatusError as e:
-        logger.error("NVIDIA request failed (model=%s): HTTP %s %s", model, e.response.status_code, e.response.text[:300])
-        if e.response.status_code in (401, 403):
-            raise AIError("AI service rejected the API key") from e
-        if e.response.status_code == 429:
-            raise AIError("AI service is rate limited, try again shortly") from e
-        raise AIError("AI service request failed") from e
+        raise _status_error(e.response.status_code, e.response.text, model) from e
     except (httpx.HTTPError, ValueError) as e:
         logger.exception("NVIDIA request failed (model=%s)", model)
         raise AIError("AI service request failed") from e
@@ -140,6 +146,53 @@ def chat_completion(
         logger.error("NVIDIA returned empty content (model=%s, finish_reason=%s)", model, choice.get("finish_reason"))
         raise AIError("AI returned an empty response")
     return text
+
+
+def chat_completion_stream(
+    messages: List[Dict[str, Any]],
+    max_tokens: int,
+    temperature: float = 0.3,
+) -> Iterator[str]:
+    """Streams a chat completion, yielding reply text chunks as they arrive.
+
+    Same settings as chat_completion. Raises AIError (str(e) is user-safe) if the
+    request fails before or during the stream.
+    """
+    client = get_client()
+    model = get_model_name()
+    payload = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "chat_template_kwargs": {"enable_thinking": False},
+        "stream": True,
+    }
+
+    try:
+        with client.stream("POST", "/chat/completions", json=payload) as response:
+            if response.status_code >= 400:
+                response.read()
+                raise _status_error(response.status_code, response.text, model)
+            for line in response.iter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data)
+                except ValueError:
+                    continue
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+                text = (choices[0].get("delta") or {}).get("content")
+                if text:
+                    yield text
+    except httpx.HTTPError as e:
+        logger.exception("NVIDIA stream failed (model=%s)", model)
+        raise AIError("AI service request failed") from e
 
 
 def extract_facts(raw_text: str) -> List[Dict[str, Any]]:

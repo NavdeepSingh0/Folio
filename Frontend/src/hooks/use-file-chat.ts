@@ -21,21 +21,54 @@ export function useFileChat(fileId: string | null) {
     const toSend = [...attachments];
     setAttachments([]);
 
-    const append = (msg: Omit<ChatMessage, "id">) =>
-      setChatByFile(prev => ({ ...prev, [id]: [...(prev[id] ?? []), { ...msg, id: ++chatMessageSeq }] }));
+    const append = (msg: Omit<ChatMessage, "id">) => {
+      const message = { ...msg, id: ++chatMessageSeq };
+      setChatByFile(prev => ({ ...prev, [id]: [...(prev[id] ?? []), message] }));
+      return message.id;
+    };
+    const setText = (messageId: number, next: string) =>
+      setChatByFile(prev => ({
+        ...prev,
+        [id]: (prev[id] ?? []).map(m => m.id === messageId ? { ...m, text: next } : m),
+      }));
 
     append({ role: "user", text: toSend.length > 0 ? `${text}\n[Attachments sent]` : text });
     setSendingByFile(prev => ({ ...prev, [id]: true }));
+
+    // The reply streams in: its bubble appears on the first chunk, and chunks are
+    // flushed at most once per frame so long replies don't re-render per token.
+    let reply = "";
+    let replyId: number | null = null;
+    let frame: number | null = null;
+    const flush = () => {
+      frame = null;
+      if (replyId === null) replyId = append({ role: "model", text: reply });
+      else setText(replyId, reply);
+    };
+
     try {
-      const response = await api.sendMessage(text, Number(id), sessionByFile[id], toSend);
-      if (response.session_id) {
-        setSessionByFile(prev => ({ ...prev, [id]: response.session_id }));
-      }
-      append({ role: "model", text: response.message });
+      const { session_id } = await api.sendMessageStream(
+        text, Number(id), sessionByFile[id], toSend,
+        (delta) => {
+          reply += delta;
+          if (frame === null) frame = requestAnimationFrame(flush);
+        },
+      );
+      setSessionByFile(prev => ({ ...prev, [id]: session_id }));
+      if (frame !== null) cancelAnimationFrame(frame);
+      if (reply) flush();
     } catch (err) {
       console.error(err);
+      if (frame !== null) cancelAnimationFrame(frame);
       const detail = err instanceof Error ? err.message : String(err);
-      append({ role: "model", text: `Sorry, I couldn't get a response: ${detail}` });
+      if (reply) {
+        // Keep what arrived and say it was cut short
+        const partial = `${reply}\n\n*(Response interrupted: ${detail})*`;
+        if (replyId === null) append({ role: "model", text: partial });
+        else setText(replyId, partial);
+      } else {
+        append({ role: "model", text: `Sorry, I couldn't get a response: ${detail}` });
+      }
     } finally {
       setSendingByFile(prev => ({ ...prev, [id]: false }));
     }

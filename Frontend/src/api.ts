@@ -40,6 +40,15 @@ const toJson = <T>(res: Response) => res.json() as Promise<T>;
 type Id = string | number;
 type Message = { message: string };
 
+function buildChatForm(message: string, file_id?: number, session_id?: number, attachments?: File[]) {
+  const formData = new FormData();
+  formData.append("message", message);
+  if (file_id) formData.append("file_id", file_id.toString());
+  if (session_id) formData.append("session_id", session_id.toString());
+  attachments?.forEach(file => formData.append("attachments", file));
+  return formData;
+}
+
 export const api = {
   // --- Folders ---
   getFolders: (signal?: AbortSignal) => apiFetch(`${BASE_URL}/folders`, { signal }).then(toJson<Folder[]>),
@@ -113,22 +122,57 @@ export const api = {
 
   // --- Chat ---
   getChatHistory: () => apiFetch(`${BASE_URL}/chat/history`).then(toJson<ChatSession[]>),
-  sendMessage: (message: string, file_id?: number, session_id?: number, attachments?: File[]) => {
-    const formData = new FormData();
-    formData.append("message", message);
-    if (file_id) formData.append("file_id", file_id.toString());
-    if (session_id) formData.append("session_id", session_id.toString());
-
-    if (attachments && attachments.length > 0) {
-      attachments.forEach(file => {
-        formData.append("attachments", file);
-      });
-    }
-
-    return apiFetch(`${BASE_URL}/chat`, {
+  sendMessage: (message: string, file_id?: number, session_id?: number, attachments?: File[]) =>
+    apiFetch(`${BASE_URL}/chat`, {
       method: 'POST',
-      body: formData
-    }).then(toJson<ChatReply>);
+      body: buildChatForm(message, file_id, session_id, attachments)
+    }).then(toJson<ChatReply>),
+  // Streams the reply (POST /chat/stream, Server-Sent Events). onDelta gets each text chunk
+  // as it arrives; resolves with the saved session id once the reply is complete.
+  sendMessageStream: async (
+    message: string,
+    file_id: number | undefined,
+    session_id: number | undefined,
+    attachments: File[] | undefined,
+    onDelta: (text: string) => void,
+    signal?: AbortSignal,
+  ): Promise<{ session_id: number }> => {
+    const res = await apiFetch(`${BASE_URL}/chat/stream`, {
+      method: 'POST',
+      body: buildChatForm(message, file_id, session_id, attachments),
+      signal,
+    });
+    if (!res.body) throw new Error("Streaming isn't supported by this browser");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let sessionId: number | null = null;
+
+    const handleEvent = (raw: string) => {
+      const line = raw.split("\n").find(l => l.startsWith("data:"));
+      if (!line) return;
+      let event: { type: string; text?: string; detail?: string; session_id?: number };
+      try { event = JSON.parse(line.slice(5).trim()); } catch { return; }
+      if (event.type === "delta" && event.text) onDelta(event.text);
+      else if (event.type === "error") throw new Error(event.detail || "AI assistant request failed");
+      else if (event.type === "done" && typeof event.session_id === "number") sessionId = event.session_id;
+    };
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let boundary: number;
+      while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+        handleEvent(buffer.slice(0, boundary));
+        buffer = buffer.slice(boundary + 2);
+      }
+    }
+    if (buffer.trim()) handleEvent(buffer);
+
+    if (sessionId === null) throw new Error("The reply was cut off. Please try again.");
+    return { session_id: sessionId };
   },
   highlightToAsk: (file_id: number, highlighted_text: string, surrounding_text?: string) =>
     apiFetch(`${BASE_URL}/chat/context`, {

@@ -145,6 +145,7 @@ Every route except `/`, `/api/status` and `/api/auth/signup` needs `Authorizatio
 | PUT | `/api/attachments/{attachment_id}` | Yes | Rename an attachment |
 | DELETE | `/api/attachments/{attachment_id}` | Yes | Delete an attachment |
 | POST | `/api/chat` | Yes | Send a chat message (optionally with attachments) to the AI model |
+| POST | `/api/chat/stream` | Yes | Same as `/api/chat`, but the reply streams back as Server-Sent Events (`delta`, `done`, `error`). The web app uses this one |
 | POST | `/api/chat/context` | Yes | Set or refresh the note context for a chat |
 | GET | `/api/chat/history` | Yes | List chat sessions |
 
@@ -306,6 +307,7 @@ These changes went in during the optimization passes:
 - Mobile: the note WebView throttles its scroll events, so the JS bridge isn't flooded while reading.
 - Web: routes are split with `React.lazy`, so each screen loads as its own chunk.
 - Backend: the heavy routes are sync `def` handlers, which FastAPI runs in its threadpool. Blocking DB, parsing and storage calls don't stall the event loop.
+- Chat (web): replies stream in as they are generated, so the first words appear in about a second instead of after the whole answer is ready.
 - Chat: only the last few turns of history (`CHAT_HISTORY_TURNS`) are sent to the model, along with the note context. Output is capped at 8192 tokens.
 - Saving: note updates return a slim response with a `content_hash` instead of echoing the full Markdown back.
 - Auth: local JWT verification and 5-minute caches remove a Supabase round trip from most requests.

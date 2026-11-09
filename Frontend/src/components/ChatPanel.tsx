@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Loader2, MessageSquare, Minimize2, X } from "lucide-react";
 import ChatBubble from "./ChatBubble";
 import ChatInput from "./ChatInput";
@@ -20,6 +20,17 @@ export default function ChatPanel({
   fileName, messages, isSending, attachments, onAddAttachments, onRemoveAttachment, onSend, onClose,
 }: ChatPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Follow new text only while the reader is at the bottom; scrolling up pauses it
+  const stickToBottomRef = useRef(true);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight;
+  }, [messages, isSending]);
+
+  // Waiting for the first chunk of a reply (the reply's bubble replaces the spinner)
+  const isWaiting = isSending && messages[messages.length - 1]?.role !== "model";
 
   return (
     <div className="absolute inset-0 z-10 flex flex-col">
@@ -37,14 +48,21 @@ export default function ChatPanel({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 bg-background">
+      <div
+        ref={scrollRef}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+        className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 bg-background"
+      >
         <div className="bg-muted p-4 rounded-2xl rounded-tl-sm self-start max-w-[85%] text-sm border border-border">
           Hello! I've loaded the context for <strong>{fileName || "this document"}</strong>. What would you like to know?
         </div>
         {messages.map((msg) => (
           <ChatBubble key={msg.id} role={msg.role} text={msg.text} />
         ))}
-        {isSending && (
+        {isWaiting && (
           <div className="p-4 rounded-2xl bg-muted rounded-tl-sm self-start text-sm border border-border">
             <Loader2 className="w-4 h-4 animate-spin" />
           </div>

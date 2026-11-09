@@ -306,3 +306,9 @@ What was built: Added Folder, NoteSummary, Note, Attachment, Fact, ChatSession a
 Key decisions made: Ids are numbers everywhere; conversion happens at the two DOM boundaries (dataTransfer on drag-drop, <select> value on move). This fixed a real bug found by QA: after moving a note into a folder via the dropdown, the folder's note count stayed stale, so deleting that folder showed no "Keep Notes" option and deleted the notes too.
 Blockers encountered: none
 Next slice: Chat streaming
+
+[2026-11-09 16:36] NON-SLICE: Streaming chat replies
+What was built: New POST /api/chat/stream (Server-Sent Events: delta / done / error) backed by chat_completion_stream in ai_pipeline.py. chat.py now shares _prepare_turn/_save_turn between the old JSON endpoint and the stream one. Web chat reads the stream, grows the reply bubble per animation frame, and auto-scrolls while the reader is at the bottom.
+Key decisions made: Kept POST /api/chat unchanged for the mobile app. The reply is saved with a fresh DB session after the stream ends (the request-scoped session may be closed), so an interrupted stream saves nothing. Request-level errors (404, image attachment, 503) stay normal HTTP errors; only mid-stream failures are SSE error events.
+Blockers encountered: none (uvicorn --reload hung on Windows twice this session; local backend now runs without --reload)
+Next slice: none left on the improvement list
