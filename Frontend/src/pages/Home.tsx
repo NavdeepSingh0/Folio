@@ -3,14 +3,15 @@ import { Search, Folder, FileText, Clock, TrendingUp, Calendar, History, Activit
 import { AppLayout } from "../components/AppLayout";
 import { api } from "../api";
 import { cache } from "../lib/cache";
+import type { Folder as FolderType, NoteSummary } from "../types";
 import { useNavigate } from "react-router-dom";
 
 export function Home() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeWidget, setActiveWidget] = useState(0);
-  const [pinnedFolders, setPinnedFolders] = useState<any[]>(() => cache.get<any[]>('home_pinned') || []);
-  const [recentNotes, setRecentNotes] = useState<any[]>(() => cache.get<any[]>('home_recent') || []);
+  const [pinnedFolders, setPinnedFolders] = useState<FolderType[]>(() => cache.get<FolderType[]>('home_pinned') || []);
+  const [recentNotes, setRecentNotes] = useState<NoteSummary[]>(() => cache.get<NoteSummary[]>('home_recent') || []);
   const [loadError, setLoadError] = useState(false);
 
 
@@ -26,7 +27,7 @@ export function Home() {
     setLoadError(false);
     try {
       const [folders, files] = await Promise.all([api.getFolders(), api.getAllFiles(6)]);
-      const pinned = folders.filter((f: any) => f.is_pinned);
+      const pinned = folders.filter(f => f.is_pinned);
       setPinnedFolders(pinned);
       cache.set('home_pinned', pinned);
 

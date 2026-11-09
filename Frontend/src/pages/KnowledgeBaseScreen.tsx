@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { Database, Search, Hash, ExternalLink, Loader2 } from "lucide-react";
 import { api } from "../api";
+import type { Fact } from "../types";
 
 export function KnowledgeBaseScreen() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [facts, setFacts] = useState<any[]>([]);
+  const [facts, setFacts] = useState<Fact[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

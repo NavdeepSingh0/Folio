@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { MessageSquare, Paperclip, Edit, Eye, Info, FileText, Loader2 } from "lucide-react";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { cache } from "../lib/cache";
 import "github-markdown-css/github-markdown.css";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
@@ -12,11 +12,14 @@ import StudyTabBar from "../components/StudyTabBar";
 import AttachmentsPanel from "../components/AttachmentsPanel";
 import ChatPanel from "../components/ChatPanel";
 import { useFileChat } from "../hooks/use-file-chat";
-import type { Attachment } from "../types";
+import type { Attachment, NoteSummary } from "../types";
 
 // File metadata for the localStorage cache; the markdown body is left out so
 // large notes (inline images) never fill the storage quota.
-const stripBody = ({ markdown_content: _body, ...meta }: any) => meta;
+// The note being studied: list metadata, plus the body once it has loaded.
+type StudyFile = NoteSummary & { markdown_content?: string | null };
+
+const stripBody = ({ markdown_content: _body, ...meta }: StudyFile): NoteSummary => meta;
 
 export function StudyScreen() {
   const [searchParams] = useSearchParams();
@@ -34,7 +37,7 @@ export function StudyScreen() {
   const [loadVersion, setLoadVersion] = useState(0);
   const [wordCount, setWordCount] = useState(0);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
-  const [fileData, setFileData] = useState<any>(null);
+  const [fileData, setFileData] = useState<StudyFile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   // Which note the editor buffer was loaded for. The editor is only mounted when this
   // matches the URL's note; otherwise a stale pane (previous note's text vs. the new
@@ -120,7 +123,7 @@ export function StudyScreen() {
     setIsEditing(false);
     setEditingName(false);
 
-    const applyFile = (data: any) => {
+    const applyFile = (data: StudyFile) => {
       const content = data.markdown_content || "No content extracted.";
       setFileData(data);
       setEditNameValue(data.name || "");
@@ -136,7 +139,7 @@ export function StudyScreen() {
 
     // 1. Instant metadata from cache. Note bodies are never cached in
     // localStorage, so content always comes from the network.
-    const cachedMeta = cache.get<any>(`study_file_${fileId}`);
+    const cachedMeta = cache.get<StudyFile>(`study_file_${fileId}`);
     // Drop the previous file's buffer so it can't be shown or saved under this id
     setFileData(cachedMeta && !("markdown_content" in cachedMeta) ? cachedMeta : null);
     setEditNameValue(cachedMeta?.name || "");
@@ -144,7 +147,7 @@ export function StudyScreen() {
     setLoadedFileId(null);
     setIsLoading(true);
 
-    setPanelAttachments(cache.get<any[]>(`study_attachments_${fileId}`) || []);
+    setPanelAttachments(cache.get<Attachment[]>(`study_attachments_${fileId}`) || []);
 
     // 2. Background Revalidation
     api.getFile(fileId, signal).then(data => {
@@ -194,11 +197,11 @@ export function StudyScreen() {
       setSaveStatus("Saving...");
       // PUT returns a summary without the body; keep the local buffer.
       // expected_hash makes the server reject the save if another tab/device changed the note.
-      let summary: any;
+      let summary: NoteSummary;
       try {
         summary = await api.updateFile(id, { markdown_content: content, expected_hash: savedFileData?.content_hash ?? null });
-      } catch (err: any) {
-        if (err?.status !== 409) throw err;
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.status !== 409) throw err;
         setSaveStatus("Note changed on server: reload or overwrite");
         const overwrite = window.confirm(
           "This note changed on the server since you opened it.\n\nOK: overwrite it with your version.\nCancel: keep editing (reload the note to see the server version)."
@@ -206,12 +209,12 @@ export function StudyScreen() {
         if (!overwrite) return;
         summary = await api.updateFile(id, { markdown_content: content });
       }
-      const nextFileData = savedFileData ? { ...savedFileData, content_hash: summary?.content_hash } : null;
+      const nextFileData = savedFileData ? { ...savedFileData, content_hash: summary.content_hash } : null;
       if (nextFileData) {
         cache.set(`study_file_${id}`, stripBody(nextFileData));
       }
       if (fileIdRef.current === id) {
-        setFileData((prev: any) => prev ? { ...prev, markdown_content: content, content_hash: summary?.content_hash } : prev);
+        setFileData(prev => prev ? { ...prev, markdown_content: content, content_hash: summary.content_hash } : prev);
         setBaselineMarkdown(content);
       }
       setSaveStatus("Saved!");
@@ -258,7 +261,7 @@ export function StudyScreen() {
     try {
       await api.updateFile(id, { name });
       if (fileIdRef.current === id) {
-        setFileData((prev: any) => prev ? { ...prev, name } : prev);
+        setFileData(prev => prev ? { ...prev, name } : prev);
       }
     } catch (err) {
       console.error(err);

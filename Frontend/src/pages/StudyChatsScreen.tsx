@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { MessageSquare, Search, Clock, ChevronRight } from "lucide-react";
 import { api } from "../api";
+import type { ChatSession } from "../types";
 
 export function StudyChatsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [chats, setChats] = useState<any[]>([]);
+  const [chats, setChats] = useState<ChatSession[]>([]);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {

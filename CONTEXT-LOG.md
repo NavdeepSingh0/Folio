@@ -300,3 +300,9 @@ What was built: StudyScreen (704 -> 449 lines) now composes StudyTabBar, Attachm
 Key decisions made: Attachment preview/rename state moved inside AttachmentsPanel (mounted with key=fileId so it resets per note); tab-rename and save state stay in StudyScreen because they depend on file data and dirty tracking.
 Blockers encountered: none (QA: 25-check regression suite run before and after the refactor, plus chat/attachment error paths and Split View)
 Next slice: Type the API layer (remove any)
+
+[2026-11-09 16:23] NON-SLICE: Typed web API layer (removed all 'any')
+What was built: Added Folder, NoteSummary, Note, Attachment, Fact, ChatSession and ChatReply types (types/index.ts) mirroring the backend schemas, typed every api.ts method, replaced thrown status-bearing Errors with an ApiError class, and removed all 31 'any' from the web app.
+Key decisions made: Ids are numbers everywhere; conversion happens at the two DOM boundaries (dataTransfer on drag-drop, <select> value on move). This fixed a real bug found by QA: after moving a note into a folder via the dropdown, the folder's note count stayed stale, so deleting that folder showed no "Keep Notes" option and deleted the notes too.
+Blockers encountered: none
+Next slice: Chat streaming

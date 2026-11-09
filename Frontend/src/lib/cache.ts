@@ -31,7 +31,7 @@ export const cache = {
       return null;
     }
   },
-  set: (key: string, value: any) => {
+  set: (key: string, value: unknown) => {
     try {
       localStorage.setItem(scopedKey(key), JSON.stringify(value));
     } catch (e) {

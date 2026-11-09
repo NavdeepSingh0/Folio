@@ -4,12 +4,13 @@ import { AppLayout } from "../components/AppLayout";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { cache } from "../lib/cache";
+import type { Folder as FolderType, NoteSummary } from "../types";
 
 export function LibraryScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [pinnedFolders, setPinnedFolders] = useState<string[]>(() => cache.get<string[]>('library_pinned') || []);
-  const [folders, setFolders] = useState<any[]>(() => cache.get<any[]>('library_folders') || []);
-  const [files, setFiles] = useState<any[]>(() => cache.get<any[]>('library_files_unassigned') || []);
+  const [folders, setFolders] = useState<FolderType[]>(() => cache.get<FolderType[]>('library_folders') || []);
+  const [files, setFiles] = useState<NoteSummary[]>(() => cache.get<NoteSummary[]>('library_files_unassigned') || []);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   
@@ -21,7 +22,7 @@ export function LibraryScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeFolderId = searchParams.get("folder");
   const activeFolder = activeFolderId ? folders.find(f => f.id.toString() === activeFolderId) ?? null : null;
-  const setActiveFolder = (folder: any) => {
+  const setActiveFolder = (folder: FolderType | null) => {
     setSearchParams(folder ? { folder: folder.id.toString() } : {}, { replace: true });
   };
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export function LibraryScreen() {
 
   useEffect(() => {
     const cacheKeyFiles = activeFolderId ? `library_files_${activeFolderId}` : 'library_files_unassigned';
-    const cachedFiles = cache.get<any[]>(cacheKeyFiles);
+    const cachedFiles = cache.get<NoteSummary[]>(cacheKeyFiles);
     if (cachedFiles) setFiles(cachedFiles);
 
     // Aborted when the folder changes so a slow response can't show the wrong folder's files
@@ -47,7 +48,7 @@ export function LibraryScreen() {
       cache.set('library_folders', foldersData);
 
       // Unknown folder in the URL: fall back to unassigned notes as before
-      if (activeFolderId && !foldersData.some((f: any) => f.id.toString() === activeFolderId)) {
+      if (activeFolderId && !foldersData.some(f => f.id.toString() === activeFolderId)) {
         setSearchParams({}, { replace: true });
         return;
       }
@@ -55,7 +56,7 @@ export function LibraryScreen() {
       setFiles(filesData);
       cache.set(cacheKeyFiles, filesData);
 
-      const pinned = foldersData.filter((f: any) => f.is_pinned).map((f: any) => f.name);
+      const pinned = foldersData.filter(f => f.is_pinned).map(f => f.name);
       setPinnedFolders(pinned);
       cache.set('library_pinned', pinned);
       setLoading(false);
@@ -74,14 +75,14 @@ export function LibraryScreen() {
     setReloadKey(k => k + 1);
   };
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [movingId, setMovingId] = useState<string | null>(null);
-  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [movingId, setMovingId] = useState<number | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [deleteFolderPrompt, setDeleteFolderPrompt] = useState<any>(null);
-  const [deleteFilePrompt, setDeleteFilePrompt] = useState<any>(null);
+  const [deleteFolderPrompt, setDeleteFolderPrompt] = useState<FolderType | null>(null);
+  const [deleteFilePrompt, setDeleteFilePrompt] = useState<NoteSummary | null>(null);
 
-  const confirmDeleteFolder = async (id: string, keepNotes: boolean) => {
+  const confirmDeleteFolder = async (id: number, keepNotes: boolean) => {
     try {
       await api.deleteFolder(id, keepNotes);
       setFolders(prev => prev.filter(f => f.id !== id));
@@ -93,7 +94,7 @@ export function LibraryScreen() {
     setDeleteFolderPrompt(null);
   };
 
-  const confirmDeleteFile = async (id: string) => {
+  const confirmDeleteFile = async (id: number) => {
     try {
       await api.deleteFile(id);
       setFiles(prev => prev.filter(f => f.id !== id));
@@ -103,7 +104,7 @@ export function LibraryScreen() {
     setDeleteFilePrompt(null);
   };
 
-  const togglePin = async (folderName: string, folderId: string, isCurrentlyPinned: boolean, e: React.MouseEvent) => {
+  const togglePin = async (folderName: string, folderId: number, isCurrentlyPinned: boolean, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -152,14 +153,14 @@ export function LibraryScreen() {
     setNewFolderName("");
   };
 
-  const startEdit = (id: string, currentName: string, e: React.MouseEvent) => {
+  const startEdit = (id: number, currentName: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setEditingId(id);
     setEditValue(currentName);
   };
 
-  const saveEdit = async (type: "folder" | "file", id: string, e?: React.MouseEvent) => {
+  const saveEdit = async (type: "folder" | "file", id: number, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -189,7 +190,7 @@ export function LibraryScreen() {
     setEditingId(null);
   };
 
-  const moveToFolder = async (fileId: string, folderId: string, e: React.MouseEvent | React.ChangeEvent) => {
+  const moveToFolder = async (fileId: number, folderId: number, e: React.MouseEvent | React.ChangeEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!folderId) {
@@ -209,10 +210,10 @@ export function LibraryScreen() {
     setMovingId(null);
   };
 
-  const handleDrop = async (fileId: string, folderId: string) => {
+  const handleDrop = async (fileId: number, folderId: number) => {
     try {
       await api.updateFile(fileId, { folder_id: folderId });
-      setFiles(files.filter(f => f.id.toString() !== fileId.toString()));
+      setFiles(files.filter(f => f.id !== fileId));
       setFolders(folders.map(f => f.id === folderId ? { ...f, notes_count: f.notes_count + 1 } : f));
     } catch (error) {
       console.error("Failed to drop file:", error);
@@ -313,7 +314,7 @@ export function LibraryScreen() {
                     onDrop={(e) => {
                       e.preventDefault();
                       setDragOverFolderId(null);
-                      const fileId = e.dataTransfer.getData('text/plain');
+                      const fileId = Number(e.dataTransfer.getData('text/plain'));
                       if (fileId) handleDrop(fileId, folder.id);
                     }}
                     onClick={() => {
@@ -416,7 +417,7 @@ export function LibraryScreen() {
                       key={file.id} 
                       draggable
                       onDragStart={(e) => {
-                        e.dataTransfer.setData('text/plain', file.id);
+                        e.dataTransfer.setData('text/plain', String(file.id));
                         e.dataTransfer.effectAllowed = 'move';
                       }}
                       onClick={() => {
@@ -448,7 +449,7 @@ export function LibraryScreen() {
                             <div className="flex items-center gap-2 mb-0.5 max-w-sm" onClick={e => e.stopPropagation()}>
                               <select 
                                 autoFocus
-                                onChange={(e) => moveToFolder(file.id, e.target.value, e)}
+                                onChange={(e) => moveToFolder(file.id, Number(e.target.value), e)}
                                 onBlur={() => setMovingId(null)}
                                 className="w-full h-7 px-2 text-[13px] border border-primary rounded-md outline-none bg-card cursor-pointer"
                               >
