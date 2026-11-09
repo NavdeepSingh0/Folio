@@ -288,3 +288,9 @@ What was built: Split View now shows a second, read-only note beside the active 
 Key decisions made: Reused open tabs as the source list instead of adding a new note picker; second pane is read-only so it can't create a second dirty buffer.
 Blockers encountered: none (QA via Playwright with a faked Supabase session and stubbed API; backend CORS defaults also fixed to allow 127.0.0.1)
 Next slice: Split StudyScreen into smaller components
+
+[2026-11-09 16:15] NON-SLICE: Fix blank note after discarding edits and switching tabs
+What was built: StudyScreen now tracks which note its editor buffer was loaded for (loadedFileId) and mounts the editor only when it matches the URL's note. Found by browser QA: after saving a note, editing again and discarding while switching tabs, the next note rendered blank because a stale editor pane reported "dirty" after the load effect had reset it, so the fetched note was never applied.
+Key decisions made: Fixed by not mounting the stale pane rather than changing the dirty-tracking logic, keeping the change to 5 lines.
+Blockers encountered: none
+Next slice: Split StudyScreen into smaller components

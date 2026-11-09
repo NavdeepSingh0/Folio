@@ -37,6 +37,10 @@ export function StudyScreen() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [fileData, setFileData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Which note the editor buffer was loaded for. The editor is only mounted when this
+  // matches the URL's note; otherwise a stale pane (previous note's text vs. the new
+  // baseline) briefly reports "dirty" and makes the load skip applying the new note.
+  const [loadedFileId, setLoadedFileId] = useState<string | null>(null);
   const [showDocInfo, setShowDocInfo] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
   const [showSplitFile, setShowSplitFile] = useState(false);
@@ -173,6 +177,7 @@ export function StudyScreen() {
     setFileData(cachedMeta && !("markdown_content" in cachedMeta) ? cachedMeta : null);
     setEditNameValue(cachedMeta?.name || "");
     showMessage("");
+    setLoadedFileId(null);
     setIsLoading(true);
 
     setPanelAttachments(cache.get<any[]>(`study_attachments_${fileId}`) || []);
@@ -194,11 +199,13 @@ export function StudyScreen() {
       } else {
         applyFile(data);
       }
+      setLoadedFileId(fileId);
       setIsLoading(false);
     }).catch(err => {
       if (signal.aborted) return;
       console.error("Failed to load file", err);
       if (!isDirtyRef.current) showMessage("Failed to load file data.");
+      setLoadedFileId(fileId);
       setIsLoading(false);
     });
     api.getAttachments(fileId, signal).then(data => {
@@ -490,7 +497,7 @@ export function StudyScreen() {
           {/* Main Reading/Editing Pane */}
           <Panel defaultSize={chatOpen || showAttachments ? 65 : 100} minSize={30}>
             <div className="h-full overflow-hidden flex flex-col relative">
-              {isLoading ? (
+              {isLoading || loadedFileId !== fileId ? (
                 <div className="flex-1 flex items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
