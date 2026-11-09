@@ -150,7 +150,7 @@ def upload_file(
             db.commit()
             db.refresh(db_file)
 
-    # Background: AI fact extraction (needs GEMINI_API_KEY; failure marks the file failed)
+    # Background: AI fact extraction (needs NVIDIA_API_KEY; failure marks the file failed)
     if status == "processing":
         background_tasks.add_task(extract_facts_background, db_file.id, raw_text)
 

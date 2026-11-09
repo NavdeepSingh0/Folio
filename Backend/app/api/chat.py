@@ -1,21 +1,16 @@
-import io
 import json
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from google.genai import types
-import PIL.Image
 
 from ..models.database import get_db
 from ..models import schema, pydantic_schemas
 from ..services.ai_pipeline import (
-    get_client, get_model_name, thinking_config, AINotConfiguredError,
+    chat_completion, AIError, AINotConfiguredError,
     build_chat_system_instruction, CHAT_HISTORY_TURNS,
 )
-from ..utils.limits import (
-    MAX_CHAT_IMAGE_BYTES, MAX_CHAT_TEXT_ATTACHMENT_BYTES, MAX_CHAT_TEXT_CHARS, MAX_IMAGE_PIXELS, read_limited,
-)
+from ..utils.limits import MAX_CHAT_TEXT_ATTACHMENT_BYTES, MAX_CHAT_TEXT_CHARS
 from .library import get_current_user_id
 
 logger = logging.getLogger(__name__)
@@ -24,41 +19,29 @@ router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
 CHAT_MAX_OUTPUT_TOKENS = 8192
 LEGACY_DOC_PREFIX = "You are a helpful study assistant. The user is currently reading this document:\n\n---\n"
-PIL.Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 
 
-def _generate(contents, system_instruction: Optional[str] = None) -> str:
-    """Calls Gemini and returns the text, mapping failures to HTTP errors."""
+def _generate(messages: list) -> str:
+    """Calls the AI model and returns the text, mapping failures to HTTP errors."""
     try:
-        client = get_client()
+        return chat_completion(messages, max_tokens=CHAT_MAX_OUTPUT_TOKENS)
     except AINotConfiguredError:
         raise HTTPException(status_code=503, detail="AI assistant is not configured on the server")
-
-    model = get_model_name()
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                max_output_tokens=CHAT_MAX_OUTPUT_TOKENS,
-                thinking_config=thinking_config(model),
-            ),
-        )
-    except Exception:
-        logger.exception("Gemini chat request failed (model=%s)", model)
-        raise HTTPException(status_code=502, detail="AI assistant request failed. Please try again.")
-
-    if not response.text:
-        logger.error("Gemini chat returned an empty response (model=%s)", model)
-        raise HTTPException(status_code=502, detail="AI assistant returned an empty response. Please try again.")
-    return response.text
+    except AIError as e:
+        raise HTTPException(status_code=502, detail=f"AI assistant request failed: {e}. Please try again.")
 
 
-def _history_to_contents(history: list) -> list:
-    """Converts stored history ({role, parts: [str]}) into Gemini content objects."""
+def _history_to_messages(history: list) -> list:
+    """Converts stored history ({role, parts: [str]}) into chat messages.
+
+    Stored history keeps the old "model" role name; the API calls it "assistant".
+    """
     return [
-        types.Content(role=item["role"], parts=[types.Part(text=str(p)) for p in item.get("parts", [])])
+        {
+            "role": "assistant" if item["role"] == "model" else "user",
+            "content": "\n".join(str(p) for p in item.get("parts", [])),
+        }
         for item in history
         if item.get("role") in ("user", "model")
     ]
@@ -82,20 +65,6 @@ def _split_context(history: list) -> tuple[Optional[int], Optional[str], list]:
         legacy = str(history[0]["parts"][0])[len(LEGACY_DOC_PREFIX):]
         return None, legacy, history[2:]
     return None, None, history
-
-
-def _read_image(attachment: UploadFile) -> PIL.Image.Image:
-    """Reads a chat image with a byte cap and decompression-bomb protection."""
-    data = read_limited(attachment.file, MAX_CHAT_IMAGE_BYTES)
-    if data is None:
-        raise HTTPException(status_code=413, detail=f"Image {attachment.filename} exceeds the 10 MB limit")
-    try:
-        PIL.Image.open(io.BytesIO(data)).verify()
-        img = PIL.Image.open(io.BytesIO(data))
-        img.load()
-    except PIL.Image.DecompressionBombError:
-        raise HTTPException(status_code=400, detail=f"Image {attachment.filename} is too large to process")
-    return img
 
 
 @router.post("", response_model=dict)
@@ -150,33 +119,34 @@ def chat_with_assistant(
     elif legacy_doc:
         system_instruction = build_chat_system_instruction(legacy_doc)
 
-    # Process attachments
-    message_parts = [message]
+    # Process attachments. The current model is text-only, so images are rejected
+    # up front rather than silently dropped.
+    message_text = message
     db_history_message = message
     for attachment in attachments:
-        if attachment.filename:
-            if attachment.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                try:
-                    img = _read_image(attachment)
-                    message_parts.append(img)
-                    db_history_message += f"\n[Attached Image: {attachment.filename}]"
-                except HTTPException:
-                    raise
-                except Exception:
-                    logger.warning("Failed to process image attachment %s", attachment.filename, exc_info=True)
-            else:
-                try:
-                    content = attachment.file.read(MAX_CHAT_TEXT_ATTACHMENT_BYTES)
-                    text = content.decode('utf-8', errors='ignore')[:MAX_CHAT_TEXT_CHARS]
-                    message_parts.append(f"\n\nAttached File ({attachment.filename}):\n{text}")
-                    db_history_message += f"\n[Attached File: {attachment.filename}]"
-                except Exception:
-                    logger.warning("Failed to process text attachment %s", attachment.filename, exc_info=True)
+        if not attachment.filename:
+            continue
+        if attachment.filename.lower().endswith(IMAGE_EXTENSIONS):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Image attachments aren't supported by the current AI model ({attachment.filename}). Attach a text file instead.",
+            )
+        try:
+            content = attachment.file.read(MAX_CHAT_TEXT_ATTACHMENT_BYTES)
+            text = content.decode('utf-8', errors='ignore')[:MAX_CHAT_TEXT_CHARS]
+            message_text += f"\n\nAttached File ({attachment.filename}):\n{text}"
+            db_history_message += f"\n[Attached File: {attachment.filename}]"
+        except Exception:
+            logger.warning("Failed to process text attachment %s", attachment.filename, exc_info=True)
 
-    # 2. Call Gemini with recent history plus the new multimodal message
+    # 2. Call the model with the document, recent history and the new message
     recent = history[-CHAT_HISTORY_TURNS:]
-    contents = _history_to_contents(recent) + [types.UserContent(parts=message_parts)]
-    ai_response_text = _generate(contents, system_instruction)
+    messages = []
+    if system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
+    messages += _history_to_messages(recent)
+    messages.append({"role": "user", "content": message_text})
+    ai_response_text = _generate(messages)
 
     # 3. Persist (strings only in history)
     if chat_session is None:
@@ -236,7 +206,7 @@ def highlight_to_ask(
     else:
         prompt += "\n\nPlease explain this highlighted text clearly, defining any complex terms."
         
-    return {"response": _generate(prompt)}
+    return {"response": _generate([{"role": "user", "content": prompt}])}
 
 
 @router.get("/history", response_model=List[pydantic_schemas.ChatSessionResponse])

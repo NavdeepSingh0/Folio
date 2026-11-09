@@ -270,3 +270,15 @@ What was built: List endpoints now return file metadata only, while readers cont
 Key decisions made: Preserved the existing full Markdown reader and visual experience; performance work is limited to data transfer, query count, and unnecessary renders.
 Blockers encountered: Mobile TypeScript verification could not run because this workspace has no local TypeScript binary.
 Next slice: Measure real-device load times and bundle mobile Markdown assets for fully offline rendering
+
+[2026-11-09 15:40] NON-SLICE: Web markdown rendering (math + code highlighting)
+What was built: Wired the already-installed remark-math/rehype-katex and react-syntax-highlighter into StudyMarkdown and ChatBubble via shared lib/markdownPlugins.ts and a CodeBlock component (PrismLight, 12 languages, class-based tokens styled for light/dark in index.css). Removed 4 unused imports flagged by oxlint.
+Key decisions made: Token colors use CSS classes instead of a JS theme object so they follow the .dark class with no theme check. No package.json change needed.
+Blockers encountered: none
+Next slice: Web UX and code quality (split StudyScreen, type the API layer, chat streaming)
+
+[2026-11-09 15:49] NON-SLICE: Switch AI provider from Gemini to NVIDIA Nemotron
+What was built: Rewrote ai_pipeline.py on httpx against NVIDIA's OpenAI-compatible API (model nvidia/nemotron-3-ultra-550b-a55b, env NVIDIA_API_KEY / NVIDIA_MODEL / NVIDIA_BASE_URL). chat.py and fact extraction now use chat_completion(); README updated.
+Key decisions made: Thinking is disabled via chat_template_kwargs.enable_thinking=false (reasoning tokens otherwise eat max_tokens). Facts parse JSON with json-repair instead of a response schema. The model is text-only (endpoint returns 400 for images), so chat image attachments are rejected with a clear 400.
+Blockers encountered: none
+Next slice: Web UX and code quality

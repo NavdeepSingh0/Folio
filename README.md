@@ -4,7 +4,7 @@
   <p><strong>Cross-Platform Study Companion</strong></p>
 </div>
 
-Folio turns your raw study material into clean, structured notes you can read, edit and ask questions about. You upload a PDF, slide deck, Word document, Markdown file or image. The backend parses it and stores it as Markdown, and Gemini extracts key facts into a personal knowledge base. You can then study the note on the web or on Android, with math, code highlighting, embedded images, attachments and an AI chat that knows the note you're looking at.
+Folio turns your raw study material into clean, structured notes you can read, edit and ask questions about. You upload a PDF, slide deck, Word document, Markdown file or image. The backend parses it and stores it as Markdown, and an NVIDIA-hosted model extracts key facts into a personal knowledge base. You can then study the note on the web or on Android, with math, code highlighting, embedded images, attachments and an AI chat that knows the note you're looking at.
 
 - Web app: https://folio-three-coral.vercel.app
 - Backend: FastAPI on Render
@@ -37,8 +37,8 @@ Shared across web and mobile:
 - Upload `.pdf`, `.pptx`, `.docx`, `.md`, plain text and image files (the full list is `SUPPORTED_EXTENSIONS` in `Backend/app/services/document_parser.py`).
 - Markdown study notes that render KaTeX math, syntax-highlighted code blocks and embedded images.
 - A library of folders. Folders can be pinned, renamed and deleted, with an option to keep their notes. Notes can also stay unassigned.
-- An AI chat with Gemini, scoped to the current note. You can attach images or text files to a message, and chat history is saved per session.
-- A knowledge base of concept/description/tag facts that Gemini extracts from each upload in the background.
+- An AI chat scoped to the current note. You can attach text files to a message (images aren't supported by the current model), and chat history is saved per session.
+- A knowledge base of concept/description/tag facts that the AI model extracts from each upload in the background.
 - Per-note attachments (upload, rename, delete) stored in Supabase Storage.
 - A note switcher for jumping between notes in the same folder.
 - In-place note editing, with conflict detection when the note changed on the server.
@@ -62,7 +62,7 @@ flowchart LR
     PG[("Supabase Postgres")]
     Auth["Supabase Auth"]
     Store["Supabase Storage<br/>bucket: studyforge-storage"]
-    Gemini["Google Gemini"]
+    LLM["NVIDIA API<br/>(Nemotron)"]
 
     Web -->|"Bearer JWT, REST"| API
     Mobile -->|"Bearer JWT, REST"| API
@@ -71,10 +71,10 @@ flowchart LR
     API -->|"SQLAlchemy / psycopg2"| PG
     API -->|"verify token / sign up"| Auth
     API -->|"images, attachments"| Store
-    API -->|"fact extraction, chat"| Gemini
+    API -->|"fact extraction, chat"| LLM
 ```
 
-Both clients sign in directly with Supabase Auth and send the access token to the backend as `Authorization: Bearer <token>`. The backend owns all application data. It writes rows to Postgres through SQLAlchemy, stores binary files in Supabase Storage and calls Gemini for fact extraction and chat.
+Both clients sign in directly with Supabase Auth and send the access token to the backend as `Authorization: Bearer <token>`. The backend owns all application data. It writes rows to Postgres through SQLAlchemy, stores binary files in Supabase Storage and calls the NVIDIA API for fact extraction and chat.
 
 ## Tech stack
 
@@ -82,7 +82,7 @@ Both clients sign in directly with Supabase Auth and send the access token to th
 | --- | --- |
 | Backend | Python, FastAPI 0.138, Uvicorn, SQLAlchemy 2.0 + psycopg2-binary, Pydantic 2 |
 | Document parsing | PyMuPDF, python-pptx, python-docx, Pillow |
-| AI | Google Gemini via `google-genai` (default model `gemini-2.5-flash`, can be overridden with `GEMINI_MODEL`) |
+| AI | NVIDIA API (OpenAI-compatible) over `httpx`, default model `nvidia/nemotron-3-ultra-550b-a55b`, can be overridden with `NVIDIA_MODEL` |
 | Data / auth / files | Supabase Postgres, Supabase Auth, Supabase Storage (`supabase` 2.11) |
 | Web | React 19, Vite 8, TypeScript 6, Tailwind CSS 4, Zustand, react-markdown, `@supabase/supabase-js` |
 | Mobile | Expo SDK 56, React Native 0.85, Expo Router, NativeWind 4 (Tailwind 3), Zustand, react-native-mmkv |
@@ -144,7 +144,7 @@ Every route except `/`, `/api/status` and `/api/auth/signup` needs `Authorizatio
 | GET | `/api/files/{file_id}/attachments` | Yes | List a note's attachments |
 | PUT | `/api/attachments/{attachment_id}` | Yes | Rename an attachment |
 | DELETE | `/api/attachments/{attachment_id}` | Yes | Delete an attachment |
-| POST | `/api/chat` | Yes | Send a chat message (optionally with attachments) to Gemini |
+| POST | `/api/chat` | Yes | Send a chat message (optionally with attachments) to the AI model |
 | POST | `/api/chat/context` | Yes | Set or refresh the note context for a chat |
 | GET | `/api/chat/history` | Yes | List chat sessions |
 
@@ -195,8 +195,9 @@ Don't commit real values. Each app reads a local `.env` during development.
 | `DATABASE_URL` | Yes | Supabase Postgres connection string. `postgres://` and `postgresql://` are rewritten to `postgresql+psycopg2://` |
 | `SUPABASE_URL` | Yes | Supabase project URL |
 | `SUPABASE_KEY` | Yes | Supabase key the backend uses for auth and storage calls (a service-role key is assumed, since the backend writes to storage. Not verified here) |
-| `GEMINI_API_KEY` | Yes | Google Gemini API key |
-| `GEMINI_MODEL` | No | Overrides the default `gemini-2.5-flash` |
+| `NVIDIA_API_KEY` | Yes | NVIDIA API key (build.nvidia.com) |
+| `NVIDIA_MODEL` | No | Overrides the default `nvidia/nemotron-3-ultra-550b-a55b` |
+| `NVIDIA_BASE_URL` | No | Overrides the default `https://integrate.api.nvidia.com/v1` |
 | `INVITE_CODE` | Yes | Code users must enter to sign up. If it's unset, signup is closed |
 | `CORS_ORIGINS` | Yes in production | Comma-separated exact origins with no trailing slash, e.g. `https://folio-three-coral.vercel.app`. Defaults to `http://localhost:3000,http://localhost:5173,http://localhost:8081`. `*` is ignored |
 | `SUPABASE_JWT_SECRET` | No | Enables local HS256 token verification |
@@ -227,7 +228,7 @@ Repeat that command for each variable. Pick `--visibility` to suit the value.
 
 ## Local setup
 
-Prerequisites: Python 3.11+ (the repo's bytecode was built with 3.13), Node.js 20+, a Supabase project and a Gemini API key.
+Prerequisites: Python 3.11+ (the repo's bytecode was built with 3.13), Node.js 20+, a Supabase project and an NVIDIA API key.
 
 ### Backend
 
@@ -305,7 +306,7 @@ These changes went in during the optimization passes:
 - Mobile: the note WebView throttles its scroll events, so the JS bridge isn't flooded while reading.
 - Web: routes are split with `React.lazy`, so each screen loads as its own chunk.
 - Backend: the heavy routes are sync `def` handlers, which FastAPI runs in its threadpool. Blocking DB, parsing and storage calls don't stall the event loop.
-- Chat: only the last few turns of history (`CHAT_HISTORY_TURNS`) are sent to Gemini, along with the note context. Output is capped at 8192 tokens.
+- Chat: only the last few turns of history (`CHAT_HISTORY_TURNS`) are sent to the model, along with the note context. Output is capped at 8192 tokens.
 - Saving: note updates return a slim response with a `content_hash` instead of echoing the full Markdown back.
 - Auth: local JWT verification and 5-minute caches remove a Supabase round trip from most requests.
 
