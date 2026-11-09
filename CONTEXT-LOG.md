@@ -294,3 +294,9 @@ What was built: StudyScreen now tracks which note its editor buffer was loaded f
 Key decisions made: Fixed by not mounting the stale pane rather than changing the dirty-tracking logic, keeping the change to 5 lines.
 Blockers encountered: none
 Next slice: Split StudyScreen into smaller components
+
+[2026-11-09 16:17] NON-SLICE: Split StudyScreen into smaller components
+What was built: StudyScreen (704 -> 449 lines) now composes StudyTabBar, AttachmentsPanel and ChatPanel components plus a use-file-chat hook (per-note chat state) and a shared Attachment type in types/index.ts. JSX and behaviour moved unchanged.
+Key decisions made: Attachment preview/rename state moved inside AttachmentsPanel (mounted with key=fileId so it resets per note); tab-rename and save state stay in StudyScreen because they depend on file data and dirty tracking.
+Blockers encountered: none (QA: 25-check regression suite run before and after the refactor, plus chat/attachment error paths and Split View)
+Next slice: Type the API layer (remove any)
