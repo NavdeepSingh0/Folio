@@ -199,7 +199,7 @@ Don't commit real values. Each app reads a local `.env` during development.
 | `NVIDIA_MODEL` | No | Overrides the default `nvidia/nemotron-3-ultra-550b-a55b` |
 | `NVIDIA_BASE_URL` | No | Overrides the default `https://integrate.api.nvidia.com/v1` |
 | `INVITE_CODE` | Yes | Code users must enter to sign up. If it's unset, signup is closed |
-| `CORS_ORIGINS` | Yes in production | Comma-separated exact origins with no trailing slash, e.g. `https://folio-three-coral.vercel.app`. Defaults to `http://localhost:3000,http://localhost:5173,http://localhost:8081`. `*` is ignored |
+| `CORS_ORIGINS` | Yes in production | Comma-separated exact origins with no trailing slash, e.g. `https://folio-three-coral.vercel.app`. Defaults to the `localhost` and `127.0.0.1` forms of ports 3000, 5173 and 8081. `*` is ignored |
 | `SUPABASE_JWT_SECRET` | No | Enables local HS256 token verification |
 
 ### Frontend (`Frontend/.env`, Vercel environment)

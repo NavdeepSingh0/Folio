@@ -18,7 +18,10 @@ app = FastAPI(title="Folio Backend API")
 
 # Configure CORS for frontend access
 # CORS_ORIGINS: comma-separated list of allowed origins (defaults to local dev servers)
-DEFAULT_CORS_ORIGINS = "http://localhost:3000,http://localhost:5173,http://localhost:8081"
+DEFAULT_CORS_ORIGINS = (
+    "http://localhost:3000,http://localhost:5173,http://localhost:8081,"
+    "http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:8081"
+)
 cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",") if o.strip()]
 # A wildcard origin with credentials would reopen the original issue; drop it
 if "*" in cors_origins:
