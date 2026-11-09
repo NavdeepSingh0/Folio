@@ -7,6 +7,7 @@ import "github-markdown-css/github-markdown.css";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { NoteEditorPane } from "../components/NoteEditorPane";
+import SplitNotePane from "../components/SplitNotePane";
 import ChatBubble from "../components/ChatBubble";
 import ChatInput from "../components/ChatInput";
 
@@ -506,6 +507,7 @@ export function StudyScreen() {
                   onSave={handleSave}
                   uploadImage={uploadEditorImage}
                   onUploadError={handleUploadError}
+                  secondary={<SplitNotePane tabs={openTabs.filter(t => t.id !== fileId)} zoom={zoom} />}
                   readOverlay={!chatOpen && !showAttachments && (
                     <button 
                       onClick={() => setChatOpen(true)}

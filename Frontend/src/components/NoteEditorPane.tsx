@@ -1,5 +1,4 @@
 import React, { useDeferredValue, useEffect, useMemo, useState, type MutableRefObject } from "react";
-import { FileText } from "lucide-react";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import StudyMarkdown from "./StudyMarkdown";
 
@@ -19,6 +18,8 @@ interface NoteEditorPaneProps {
   onUploadError: () => void;
   // Extra content for the reading view (e.g. the assistant button)
   readOverlay?: React.ReactNode;
+  // Right-hand pane shown in "split" mode (e.g. a second note)
+  secondary?: React.ReactNode;
 }
 
 // Data URIs (inline images) are stripped before counting so large notes
@@ -31,7 +32,7 @@ let placeholderSeq = 0;
 // tabs, toolbar, or chat in StudyScreen.
 export function NoteEditorPane({
   initialContent, baseline, mode, zoom, contentRef,
-  onDirtyChange, onWordCount, onSave, uploadImage, onUploadError, readOverlay,
+  onDirtyChange, onWordCount, onSave, uploadImage, onUploadError, readOverlay, secondary,
 }: NoteEditorPaneProps) {
   const [markdown, setMarkdown] = useState(initialContent);
   const preview = useDeferredValue(markdown);
@@ -126,10 +127,7 @@ export function NoteEditorPane({
         </Panel>
         <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 cursor-col-resize" />
         <Panel minSize={30}>
-          <div className="h-full overflow-y-auto px-6 py-8 bg-surface flex flex-col items-center justify-center text-muted-foreground">
-              <FileText className="w-12 h-12 mb-4 opacity-20" />
-              <p>No secondary file selected</p>
-          </div>
+          {secondary}
         </Panel>
       </PanelGroup>
     );

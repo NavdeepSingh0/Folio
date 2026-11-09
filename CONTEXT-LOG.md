@@ -282,3 +282,9 @@ What was built: Rewrote ai_pipeline.py on httpx against NVIDIA's OpenAI-compatib
 Key decisions made: Thinking is disabled via chat_template_kwargs.enable_thinking=false (reasoning tokens otherwise eat max_tokens). Facts parse JSON with json-repair instead of a response schema. The model is text-only (endpoint returns 400 for images), so chat image attachments are rejected with a clear 400.
 Blockers encountered: none
 Next slice: Web UX and code quality
+
+[2026-11-09 16:07] NON-SLICE: Web Split View
+What was built: Split View now shows a second, read-only note beside the active one, chosen from the other open tabs via a picker (new SplitNotePane component, passed into NoteEditorPane as "secondary"). Replaced the old "No secondary file selected" placeholder; empty state appears when no other tab is open.
+Key decisions made: Reused open tabs as the source list instead of adding a new note picker; second pane is read-only so it can't create a second dirty buffer.
+Blockers encountered: none (QA via Playwright with a faked Supabase session and stubbed API; backend CORS defaults also fixed to allow 127.0.0.1)
+Next slice: Split StudyScreen into smaller components
