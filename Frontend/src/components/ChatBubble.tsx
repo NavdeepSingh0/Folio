@@ -1,9 +1,10 @@
 import { memo } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import CodeBlock from "./CodeBlock";
+import { remarkPlugins, rehypePlugins } from "../lib/markdownPlugins";
 
-// Hoisted so ReactMarkdown sees a stable plugin list across renders
-const remarkPlugins = [remarkGfm];
+// Hoisted so ReactMarkdown sees a stable components map across renders
+const components = { code: CodeBlock };
 
 interface ChatBubbleProps {
   role: "user" | "model";
@@ -17,7 +18,7 @@ function ChatBubble({ role, text }: ChatBubbleProps) {
         ? 'bg-muted rounded-tl-sm self-start'
         : 'bg-primary text-primary-foreground rounded-tr-sm self-end'
     }`}>
-      <ReactMarkdown remarkPlugins={remarkPlugins}>{text}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={components}>{text}</ReactMarkdown>
     </div>
   );
 }

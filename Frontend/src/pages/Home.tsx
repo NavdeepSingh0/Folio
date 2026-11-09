@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Folder, FileText, Clock, TrendingUp, Calendar, ChevronRight, History, Activity } from "lucide-react";
+import { Search, Folder, FileText, Clock, TrendingUp, Calendar, History, Activity } from "lucide-react";
 import { AppLayout } from "../components/AppLayout";
 import { api } from "../api";
 import { cache } from "../lib/cache";

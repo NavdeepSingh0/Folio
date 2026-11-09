@@ -351,4 +351,57 @@
 .markdown-body blockquote {
   color: var(--color-muted-foreground) !important;
   border-left-color: var(--color-border) !important;
-}
+}
+
+/* === Code syntax tokens (class-based so they follow light/dark) === */
+.markdown-body .token.comment,
+.markdown-body .token.prolog,
+.markdown-body .token.doctype,
+.markdown-body .token.cdata { color: #6a737d; font-style: italic; }
+.markdown-body .token.punctuation { color: #6b6b70; }
+.markdown-body .token.keyword,
+.markdown-body .token.atrule,
+.markdown-body .token.selector,
+.markdown-body .token.boolean { color: #cf222e; }
+.markdown-body .token.string,
+.markdown-body .token.char,
+.markdown-body .token.attr-value,
+.markdown-body .token.regex { color: #0a3069; }
+.markdown-body .token.number,
+.markdown-body .token.constant,
+.markdown-body .token.symbol { color: #0550ae; }
+.markdown-body .token.function,
+.markdown-body .token.class-name { color: #8250df; }
+.markdown-body .token.operator,
+.markdown-body .token.entity,
+.markdown-body .token.url { color: #953800; }
+.markdown-body .token.property,
+.markdown-body .token.tag,
+.markdown-body .token.attr-name,
+.markdown-body .token.builtin { color: #116329; }
+
+.dark .markdown-body .token.comment,
+.dark .markdown-body .token.prolog,
+.dark .markdown-body .token.doctype,
+.dark .markdown-body .token.cdata { color: #8b949e; }
+.dark .markdown-body .token.punctuation { color: #9a9aa0; }
+.dark .markdown-body .token.keyword,
+.dark .markdown-body .token.atrule,
+.dark .markdown-body .token.selector,
+.dark .markdown-body .token.boolean { color: #ff7b72; }
+.dark .markdown-body .token.string,
+.dark .markdown-body .token.char,
+.dark .markdown-body .token.attr-value,
+.dark .markdown-body .token.regex { color: #a5d6ff; }
+.dark .markdown-body .token.number,
+.dark .markdown-body .token.constant,
+.dark .markdown-body .token.symbol { color: #79c0ff; }
+.dark .markdown-body .token.function,
+.dark .markdown-body .token.class-name { color: #d2a8ff; }
+.dark .markdown-body .token.operator,
+.dark .markdown-body .token.entity,
+.dark .markdown-body .token.url { color: #ffa657; }
+.dark .markdown-body .token.property,
+.dark .markdown-body .token.tag,
+.dark .markdown-body .token.attr-name,
+.dark .markdown-body .token.builtin { color: #7ee787; }

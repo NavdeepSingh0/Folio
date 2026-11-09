@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Folder, FileText, Pin, MoreVertical, Plus, Edit2, Check, X, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
+import { Search, Folder, FileText, Pin, Plus, Edit2, Check, X, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
 import { AppLayout } from "../components/AppLayout";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";

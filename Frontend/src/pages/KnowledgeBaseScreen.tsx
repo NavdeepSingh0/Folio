@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { AppLayout } from "../components/AppLayout";
-import { Database, Search, Filter, Hash, ExternalLink, Loader2 } from "lucide-react";
+import { Database, Search, Hash, ExternalLink, Loader2 } from "lucide-react";
 import { api } from "../api";
 
 export function KnowledgeBaseScreen() {

@@ -2,12 +2,10 @@ import React, { useState } from "react";
 import { AppLayout } from "../components/AppLayout";
 import { UploadCloud, File as FileIcon, X, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { api } from "../api";
-import { useNavigate } from "react-router-dom";
 
 export function UploadScreen() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<{id: string, name: string, size: string, status: string, fileRef: File}[]>([]);
-  const navigate = useNavigate();
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();

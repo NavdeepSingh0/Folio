@@ -1,6 +1,7 @@
 import { memo, useMemo, useState, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown, { defaultUrlTransform, type ExtraProps } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import CodeBlock from "./CodeBlock";
+import { remarkPlugins, rehypePlugins } from "../lib/markdownPlugins";
 
 interface StudyMarkdownProps {
   content: string;
@@ -58,14 +59,13 @@ function MarkdownImage({ node: _node, src, alt, title }: ComponentPropsWithoutRe
 }
 
 // Hoisted so ReactMarkdown gets stable references across renders
-const remarkPlugins = [remarkGfm];
-const components = { img: MarkdownImage };
+const components = { img: MarkdownImage, code: CodeBlock };
 
 function StudyMarkdown({ content, zoom }: StudyMarkdownProps) {
   const prepared = useMemo(() => convertHtmlImages(content), [content]);
   return (
     <article className="markdown-body bg-transparent" style={{ fontSize: `${zoom}%` }}>
-      <ReactMarkdown remarkPlugins={remarkPlugins} urlTransform={transformUrl} components={components}>
+      <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} urlTransform={transformUrl} components={components}>
         {prepared}
       </ReactMarkdown>
     </article>
