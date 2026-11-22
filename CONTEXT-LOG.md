@@ -318,3 +318,9 @@ What was built: Note headings now get GitHub-style ids (new utils/rehypeHeadingI
 Key decisions made: Ids are prefixed with user-content- (as GitHub does) so a heading like "Location" cannot shadow window globals, and the click handler adds the prefix. The lookup is scoped to the closest article so Split View with two notes never jumps to the wrong pane. No new dependency (package.json is human-gated), so the rehype plugin is hand-written.
 Blockers encountered: a few older uploaded notes have TOC links that don't match their own headings (typos or wrong section numbers in the links themselves); those are content errors, not renderer bugs. The Mobile app WebView renderer was not changed.
 Next slice: none left on the improvement list
+
+[2026-11-22 21:50] NON-SLICE: Table-of-contents links in the mobile reader
+What was built: MobileMarkdown's WebView page now gives headings GitHub-style ids (user-content- prefix, same slug rule as the web reader) and handles in-note #link taps by smooth-scrolling to the heading, since the WebView has no real URL for default fragment navigation to work against.
+Key decisions made: Done inside the page script in MobileMarkdown.tsx, so no new dependency and no change to the bundled marked/hljs assets. Verified by rendering the real generated page in Chromium (both a Java and an OS note): all 54 TOC links scroll their heading to the top.
+Blockers encountered: Mobile `npm ci` fails on a peer-dependency conflict in this environment, so `tsc` could not be run for the Mobile app and the change was not tried on a device.
+Next slice: Mobile load time: bundle KaTeX and github-markdown CSS (still CDN), show stale cached lists immediately, and stop the note reader waiting on the full file list
