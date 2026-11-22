@@ -195,7 +195,34 @@ function MobileMarkdown({ content, searchQuery, searchTrigger = 0, initialScroll
           if (!img.getAttribute('src')) { fallback(); return; }
           img.addEventListener('error', fallback, { once: true });
         });
+        // Give headings GitHub-style ids so table-of-contents links (#2-some-heading) have a target.
+        // Same rule as the web reader: lowercase, drop everything except letters/digits/marks/_/-/space,
+        // spaces become hyphens, repeated titles get -1, -2. The prefix keeps ids from shadowing globals.
+        const HEADING_ID_PREFIX = 'user-content-';
+        const seenSlugs = new Map();
+        tpl.content.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((h) => {
+          const base = h.textContent.trim().toLowerCase().replace(/[^\\p{L}\\p{N}\\p{M}_ -]/gu, '').replace(/ /g, '-');
+          if (!base) return;
+          const count = seenSlugs.get(base) || 0;
+          seenSlugs.set(base, count + 1);
+          h.id = HEADING_ID_PREFIX + (count === 0 ? base : base + '-' + count);
+        });
+
         document.getElementById('content').appendChild(tpl.content);
+
+        // In-note #links scroll to the heading. The WebView has no real URL, so the default
+        // fragment navigation is unreliable; handle it here and never navigate.
+        document.getElementById('content').addEventListener('click', (e) => {
+          const link = e.target.closest && e.target.closest('a[href^="#"]');
+          if (!link) return;
+          const raw = link.getAttribute('href').slice(1);
+          if (!raw) return;
+          let id = raw;
+          try { id = decodeURIComponent(raw); } catch (err) {}
+          const target = document.getElementById(HEADING_ID_PREFIX + id);
+          e.preventDefault();
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
 
         // Highlight code blocks
         document.querySelectorAll('pre code').forEach((block) => {
