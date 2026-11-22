@@ -312,3 +312,9 @@ What was built: New POST /api/chat/stream (Server-Sent Events: delta / done / er
 Key decisions made: Kept POST /api/chat unchanged for the mobile app. The reply is saved with a fresh DB session after the stream ends (the request-scoped session may be closed), so an interrupted stream saves nothing. Request-level errors (404, image attachment, 503) stay normal HTTP errors; only mid-stream failures are SSE error events.
 Blockers encountered: none (uvicorn --reload hung on Windows twice this session; local backend now runs without --reload)
 Next slice: none left on the improvement list
+
+[2026-11-22 12:00] NON-SLICE: Make in-note table-of-contents links work
+What was built: Note headings now get GitHub-style ids (new utils/rehypeHeadingIds.ts, used only by StudyMarkdown so chat bubbles are unaffected), and StudyMarkdown handles #anchor links by smooth-scrolling to the matching heading inside the same note. Checked against four real notes: all of the new Java Unit 3 notes' 30 TOC links resolve.
+Key decisions made: Ids are prefixed with user-content- (as GitHub does) so a heading like "Location" cannot shadow window globals, and the click handler adds the prefix. The lookup is scoped to the closest article so Split View with two notes never jumps to the wrong pane. No new dependency (package.json is human-gated), so the rehype plugin is hand-written.
+Blockers encountered: a few older uploaded notes have TOC links that don't match their own headings (typos or wrong section numbers in the links themselves); those are content errors, not renderer bugs. The Mobile app WebView renderer was not changed.
+Next slice: none left on the improvement list
