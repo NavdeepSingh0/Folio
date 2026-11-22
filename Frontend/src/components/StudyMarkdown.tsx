@@ -1,7 +1,8 @@
-import { memo, useMemo, useState, type ComponentPropsWithoutRef } from "react";
+import { memo, useMemo, useState, type ComponentPropsWithoutRef, type MouseEvent } from "react";
 import ReactMarkdown, { defaultUrlTransform, type ExtraProps } from "react-markdown";
 import CodeBlock from "./CodeBlock";
 import { remarkPlugins, rehypePlugins } from "../lib/markdownPlugins";
+import rehypeHeadingIds, { HEADING_ID_PREFIX } from "../utils/rehypeHeadingIds";
 
 interface StudyMarkdownProps {
   content: string;
@@ -58,14 +59,46 @@ function MarkdownImage({ node: _node, src, alt, title }: ComponentPropsWithoutRe
   );
 }
 
+function safeDecode(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+// In-note links such as [Section 2](#2-jsp--servlet-vs-jsp) scroll to the matching heading.
+// The lookup is scoped to this article, so split view (two notes with the same headings)
+// and the URL hash stay untouched.
+function MarkdownLink({ node: _node, href, children, ...rest }: ComponentPropsWithoutRef<"a"> & ExtraProps) {
+  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (!href || !href.startsWith("#") || href.length < 2) return;
+    const targetId = HEADING_ID_PREFIX + safeDecode(href.slice(1));
+    const article = e.currentTarget.closest("article");
+    const target = article
+      ? Array.from(article.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")).find((h) => h.id === targetId)
+      : undefined;
+    if (!target) return; // no such heading: leave the browser's default behaviour alone
+    e.preventDefault();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  return (
+    <a {...rest} href={href} onClick={handleClick}>
+      {children}
+    </a>
+  );
+}
+
 // Hoisted so ReactMarkdown gets stable references across renders
-const components = { img: MarkdownImage, code: CodeBlock };
+const components = { img: MarkdownImage, code: CodeBlock, a: MarkdownLink };
+// Headings get ids only for notes (not chat bubbles, which share rehypePlugins)
+const noteRehypePlugins = [rehypeHeadingIds, ...rehypePlugins];
 
 function StudyMarkdown({ content, zoom }: StudyMarkdownProps) {
   const prepared = useMemo(() => convertHtmlImages(content), [content]);
   return (
     <article className="markdown-body bg-transparent" style={{ fontSize: `${zoom}%` }}>
-      <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} urlTransform={transformUrl} components={components}>
+      <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={noteRehypePlugins} urlTransform={transformUrl} components={components}>
         {prepared}
       </ReactMarkdown>
     </article>
